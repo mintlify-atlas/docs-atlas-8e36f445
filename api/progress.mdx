@@ -1,0 +1,306 @@
+---
+title: Progress API
+description: API endpoints for tracking lesson and course progress
+---
+
+## Get Progress
+
+<api method="GET" endpoint="/api/progress" />
+
+Retrieves progress records for the authenticated user.
+
+### Query Parameters
+
+<ParamField query="courseId" type="number">
+  Filter progress by specific course ID
+</ParamField>
+
+### Response
+
+<ResponseField name="progress" type="array">
+  Array of progress objects
+  <Expandable title="Progress Object">
+    <ResponseField name="id" type="number">
+      Progress record ID
+    </ResponseField>
+    <ResponseField name="user_id" type="string">
+      User UUID
+    </ResponseField>
+    <ResponseField name="course_id" type="number">
+      Course ID
+    </ResponseField>
+    <ResponseField name="lesson_id" type="number">
+      Lesson ID
+    </ResponseField>
+    <ResponseField name="completed" type="boolean">
+      Whether the lesson is completed
+    </ResponseField>
+    <ResponseField name="video_progress" type="number">
+      Video playback progress in seconds
+    </ResponseField>
+    <ResponseField name="last_position" type="number">
+      Last playback position in seconds
+    </ResponseField>
+    <ResponseField name="completed_at" type="string">
+      Completion timestamp (ISO 8601, null if not completed)
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      Record creation timestamp
+    </ResponseField>
+    <ResponseField name="updated_at" type="string">
+      Last update timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/progress?courseId=42
+```
+
+### Example Response
+
+```json
+{
+  "progress": [
+    {
+      "id": 1,
+      "user_id": "uuid-here",
+      "course_id": 42,
+      "lesson_id": 1,
+      "completed": true,
+      "video_progress": 0,
+      "last_position": 0,
+      "completed_at": "2024-01-15T10:30:00Z",
+      "created_at": "2024-01-15T09:00:00Z",
+      "updated_at": "2024-01-15T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "user_id": "uuid-here",
+      "course_id": 42,
+      "lesson_id": 2,
+      "completed": false,
+      "video_progress": 145,
+      "last_position": 145,
+      "completed_at": null,
+      "created_at": "2024-01-15T10:35:00Z",
+      "updated_at": "2024-01-15T10:42:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## Update Progress
+
+<api method="POST" endpoint="/api/progress" />
+
+Updates or creates a progress record for a lesson. This endpoint is used to:
+
+- Track video playback position
+- Mark lessons as completed
+- Update overall course progress
+
+### Request Body
+
+<ParamField body="course_id" type="number" required>
+  Course ID
+</ParamField>
+
+<ParamField body="lesson_id" type="number" required>
+  Lesson ID
+</ParamField>
+
+<ParamField body="completed" type="boolean">
+  Whether the lesson is completed
+</ParamField>
+
+<ParamField body="video_progress" type="number">
+  Current video playback position in seconds
+</ParamField>
+
+<ParamField body="last_position" type="number">
+  Last known playback position in seconds
+</ParamField>
+
+### Response
+
+<ResponseField name="progress" type="object">
+  Updated or created progress object
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/progress \
+  -H "Content-Type: application/json" \
+  -d '{
+    "course_id": 42,
+    "lesson_id": 2,
+    "completed": false,
+    "video_progress": 180,
+    "last_position": 180
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "progress": {
+    "id": 2,
+    "user_id": "uuid-here",
+    "course_id": 42,
+    "lesson_id": 2,
+    "completed": false,
+    "video_progress": 180,
+    "last_position": 180,
+    "completed_at": null,
+    "created_at": "2024-01-15T10:35:00Z",
+    "updated_at": "2024-01-15T10:50:00Z"
+  }
+}
+```
+
+---
+
+## Progress Tracking Logic
+
+The API uses an upsert pattern:
+
+1. **Check for existing record**: Query by `user_id` + `lesson_id`
+2. **If exists**: Update the record with new values
+3. **If not exists**: Insert a new progress record
+4. **Return**: The updated or created record
+
+This ensures:
+- No duplicate progress records
+- Seamless updates without checking existence first
+- Automatic progress resumption
+
+---
+
+## Video Progress Tracking
+
+For video lessons:
+
+- **video_progress**: Current playback position (updated frequently)
+- **last_position**: Last saved position (for resume functionality)
+- Allows users to resume from where they left off
+- Progress is saved every few seconds during playback
+
+### Example: Video Resume Flow
+
+1. User watches video to 180 seconds
+2. Client sends: `{ video_progress: 180, last_position: 180 }`
+3. User closes browser
+4. User returns to lesson
+5. Client fetches progress: GET `/api/progress?courseId=42`
+6. Client resumes video at `last_position` (180 seconds)
+
+---
+
+## Lesson Completion
+
+To mark a lesson as completed:
+
+```bash
+curl -X POST https://your-domain.com/api/progress \
+  -H "Content-Type: application/json" \
+  -d '{
+    "course_id": 42,
+    "lesson_id": 2,
+    "completed": true
+  }'
+```
+
+The API automatically:
+- Sets `completed_at` timestamp
+- Updates enrollment progress percentage
+- Checks if course is fully completed
+- Triggers certificate generation (if enabled)
+
+---
+
+## Course Completion Calculation
+
+Course progress is calculated as:
+
+```
+progress = (completed_lessons / total_required_lessons) * 100
+```
+
+Only lessons with `is_required = true` are counted.
+
+When all required lessons are completed:
+1. Enrollment status → "completed"
+2. Enrollment `completed_at` → current timestamp
+3. Certificate generation triggered (if enabled)
+4. Completion email sent
+
+---
+
+## Progress States
+
+| State | Conditions | Description |
+|-------|-----------|-------------|
+| **Not Started** | No progress record exists | User hasn't accessed the lesson |
+| **In Progress** | `completed = false`, `video_progress > 0` | User started but hasn't completed |
+| **Completed** | `completed = true`, `completed_at` set | User finished the lesson |
+
+---
+
+## Sequential Progress
+
+Some courses require sequential progress (`requires_sequential_progress = true`):
+
+- Users must complete lessons in order
+- Can't skip ahead to later lessons
+- Progress API doesn't enforce this (enforced in frontend)
+- Backend only tracks completion state
+
+---
+
+## Get Learner Progress (Admin)
+
+<api method="GET" endpoint="/api/learners/{id}/progress" />
+
+Admins can view any learner's progress.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Learner UUID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="courseId" type="number">
+  Filter by specific course
+</ParamField>
+
+---
+
+## Progress Analytics
+
+Progress data can be used for:
+
+- **Course completion rates**: % of enrolled users who complete
+- **Lesson difficulty**: Lessons with low completion rates
+- **Drop-off points**: Where users stop progressing
+- **Engagement metrics**: Average video watch time
+- **Time to completion**: Days from enrollment to completion
+
+---
+
+## Error Codes
+
+| Status Code | Description |
+|------------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Missing required fields |
+| 401 | Unauthorized - Authentication required |
+| 500 | Internal Server Error |

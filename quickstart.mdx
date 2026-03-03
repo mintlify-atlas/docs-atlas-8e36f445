@@ -1,80 +1,350 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start guide
+description: Get started with EaseLMS in minutes - from account creation to enrolling in your first course
 ---
 
-## Get started in three steps
+## Get started with EaseLMS
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through signing up for an account, browsing courses, and enrolling in your first course. You'll be learning in under 5 minutes.
 
-### Step 1: Set up your local environment
+<Note>
+  This guide is for learners using an existing EaseLMS instance. If you're setting up your own instance, see the [installation guide](/installation).
+</Note>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Create your account
+
+Get started by creating your learner account on the EaseLMS platform.
+
+<Steps>
+  <Step title="Navigate to the signup page">
+    Visit your EaseLMS instance and click "Sign Up" or navigate directly to `/auth/learner/signup`.
+  </Step>
+
+  <Step title="Fill in your details">
+    Provide your information:
+    - **First name** - Your given name
+    - **Last name** - Your family name  
+    - **Email** - Your email address (used for login)
+    - **Password** - At least 8 characters
+    - **Confirm password** - Must match your password
+
+    <CodeGroup>
+    ```typescript Signup fields
+    interface SignupForm {
+      firstName: string
+      lastName: string
+      email: string
+      password: string  // min 8 characters
+      confirmPassword: string
+      acceptedTerms: boolean
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Accept terms and privacy policy">
+    Check the box to agree to the Terms and Privacy Policy.
+
+    <Warning>
+      You must accept the terms to create an account.
+    </Warning>
+  </Step>
+
+  <Step title="Submit the form">
+    Click "Sign Up" to create your account.
+
+    Depending on the platform configuration:
+    - **Email confirmation disabled** - You'll be immediately signed in and redirected to your dashboard
+    - **Email confirmation enabled** - Check your inbox for a verification email before logging in
+  </Step>
+</Steps>
+
+## Explore available courses
+
+Once you're logged in, you'll land on your learner dashboard. From here, you can explore and enroll in courses.
+
+<Steps>
+  <Step title="Navigate to the courses page">
+    Click "Courses" in the left sidebar or visit `/learner/courses` to view all available courses.
+  </Step>
+
+  <Step title="Browse and filter courses">
+    Use the search and filter tools to find courses:
+
+    **Search:**
+    - Type in the search box to filter courses by title
+
+    **Sort options:**
+    - Relevance (default)
+    - Title (A-Z)
+    - Price: Low to High
+    - Price: High to Low
+    - Most Enrolled
+
+    **Tabs:**
+    - **All Courses** - Browse all available courses
+    - **Enrolled** - View courses you're enrolled in
+    - **Completed** - See courses you've finished
+  </Step>
+
+  <Step title="Preview a course">
+    Click on a course card or the "Preview" button to view details:
+    - Course description and requirements
+    - Lesson list and curriculum
+    - Course instructors
+    - Preview video (if available)
+    - Enrollment type (Free, Paid, or Recurring)
+
+    <Note>
+      Course preview pages show all the information you need to decide if a course is right for you.
+    </Note>
+  </Step>
+</Steps>
+
+## Enroll in a course
+
+When you've found a course you want to take, enrolling is simple.
+
+<Tabs>
+  <Tab title="Free courses">
+    <Steps>
+      <Step title="Click the enroll button">
+        From the course preview page or course card, click "Enroll".
+      </Step>
+
+      <Step title="Start learning">
+        You'll be immediately enrolled and redirected to the course learning page at `/learner/courses/[course-slug]/learn`.
+
+        The first lesson will load automatically.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Paid courses">
+    <Steps>
+      <Step title="Click the buy button">
+        From the course card or preview page, click "Buy" to purchase the course.
+      </Step>
+
+      <Step title="Complete payment">
+        You'll be redirected to the payment gateway (Stripe or Flutterwave) to complete your purchase.
+
+        **Supported payment methods:**
+        - Credit/debit cards (Stripe)
+        - Bank transfers (Flutterwave)
+        - Mobile money (Flutterwave - African markets)
+
+        <Note>
+          Prices are automatically converted to your preferred currency based on your profile settings.
+        </Note>
+      </Step>
+
+      <Step title="Payment confirmation">
+        After successful payment:
+        - You'll be redirected back to the courses page
+        - You'll receive a payment confirmation email
+        - Your enrollment will be activated automatically
+        - The admin will receive a payment notification
+      </Step>
+
+      <Step title="Start learning">
+        Navigate back to the course and click "Continue" to begin your first lesson.
+      </Step>
+    </Steps>
+
+    <Warning>
+      If payment fails or is canceled, you'll be redirected to the courses page with an error message. You can try again when ready.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Take your first lesson
+
+Once enrolled, you can start learning immediately.
+
+<Steps>
+  <Step title="Access the course">
+    From your dashboard or courses page, click "Continue" on your enrolled course. You'll be taken to `/learner/courses/[course-slug]/learn`.
+  </Step>
+
+  <Step title="Navigate lessons">
+    The course learning interface includes:
+
+    **Left sidebar:**
+    - Course title and progress
+    - Complete lesson list with checkmarks for completed lessons
+    - Click any lesson to navigate (if sequential progress is not required)
+
+    **Main content area:**
+    - Video player for video lessons
+    - Text content for text lessons  
+    - Combined content for mixed lessons
+    - Quiz interface for quiz lessons
+
+    **Bottom navigation:**
+    - "Previous" and "Next" buttons to move between lessons
+
+    <CodeGroup>
+    ```typescript Lesson types
+    type LessonType = 
+      | 'video'   // Video with Media Chrome player
+      | 'text'    // Rich text content
+      | 'mixed'   // Video + text combined
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Watch videos and track progress">
+    **For video lessons:**
+    - The video player automatically tracks your progress
+    - Progress is saved in real-time as you watch
+    - Resume from where you left off when you return
+
+    **For text lessons:**  
+    - Scroll through the content
+    - Click "Mark as Complete" when finished
+
+    <Note>
+      Your progress is saved automatically and synced in real-time across devices.
+    </Note>
+  </Step>
+
+  <Step title="Complete quizzes">
+    Some lessons include quizzes to test your knowledge:
+
+    1. Read each question carefully
+    2. Select your answer(s)
+    3. Click "Submit Answer" to check if you're correct
+    4. Review explanations for incorrect answers
+    5. Complete all questions to mark the lesson as done
+
+    **Quiz question types:**
+    - Multiple choice (single answer)
+    - Multiple select (multiple answers)
+    - True/false
+
+    <Note>
+      Some courses require a minimum quiz score to progress. Check the course settings for requirements.
+    </Note>
+  </Step>
+
+  <Step title="Download resources">
+    If the lesson includes downloadable resources:
+    - Click the "Resources" tab in the lesson view
+    - Download PDFs, documents, or other materials
+    - Use resources to supplement your learning
+  </Step>
+</Steps>
+
+## Track your progress
+
+Monitor your learning journey from your dashboard.
+
+<Steps>
+  <Step title="View dashboard stats">
+    Navigate to `/learner/dashboard` to see:
+    - **Courses in Progress** - Number of enrolled courses you're actively taking
+    - **Completed Courses** - Number of courses you've finished
+  </Step>
+
+  <Step title="Continue learning">
+    The "Continue Learning" card shows:
+    - All courses you're enrolled in but haven't completed
+    - Progress percentage for each course  
+    - "Continue" button to resume from your last lesson
+
+    <CodeGroup>
+    ```typescript Progress calculation
+    // Progress is calculated as:
+    const progress = Math.round(
+      (completedLessons / totalLessons) * 100
+    )
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    // A course is complete when progress === 100%
+    ```
+    </CodeGroup>
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="View recommended courses">
+    Discover new courses in the "Recommended Courses" section based on:
+    - Available courses you haven't enrolled in
+    - Platform recommendations
+    - Your learning history
+  </Step>
+</Steps>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+## Complete a course and earn your certificate
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+When you finish all lessons, you can access your certificate (if enabled for the course).
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Complete all lessons">
+    Work through every lesson in the course until your progress reaches 100%.
 
-### Step 3: Go live
+    <Note>
+      Some courses require completing lessons sequentially. Others allow you to jump between lessons freely.
+    </Note>
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Access the course summary">
+    Once complete, click "View Summary" from the course card or navigate to `/learner/courses/[course-slug]/learn/summary`.
+
+    The summary page shows:
+    - Course completion status
+    - Your quiz scores (if applicable)
+    - Time spent on the course
+    - Certificate download (if enabled)
+  </Step>
+
+  <Step title="Download your certificate">
+    If certificates are enabled for the course:
+    1. Click "Download Certificate" on the summary page
+    2. Your certificate will be generated as a PDF
+    3. You'll receive a "Certificate Ready" email notification
+
+    **Certificate types:**
+    - **Completion** - For finishing all course content
+    - **Achievement** - For meeting performance criteria
+    - **Participation** - For active engagement
+  </Step>
+</Steps>
+
+## Manage your account
+
+Update your profile and preferences at any time.
+
+<Steps>
+  <Step title="Navigate to your profile">
+    Click your profile icon in the top right or visit `/learner/profile`.
+  </Step>
+
+  <Step title="Update your information">
+    Edit your:
+    - Name and profile picture
+    - Email address
+    - Password
+    - Preferred currency for pricing
+    - Bio and other details
+  </Step>
+
+  <Step title="View purchase history">
+    If you've purchased any courses, view your payment history and receipts in the profile section.
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Browse courses" icon="book-open">
+    Explore all available courses and find your next learning opportunity
+  </Card>
+  <Card title="View your dashboard" icon="chart-line">
+    Track your progress and continue your learning journey
+  </Card>
+  <Card title="Self-host EaseLMS" icon="server" href="/installation">
+    Install EaseLMS on your own infrastructure
+  </Card>
+  <Card title="Get support" icon="life-ring" href="mailto:contact@easelms.org">
+    Contact us if you need help
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

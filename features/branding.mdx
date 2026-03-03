@@ -1,0 +1,404 @@
+---
+title: Branding and theming
+description: Customize your platform's visual identity with logos, colors, and SEO settings
+---
+
+Make EaseLMS truly yours by customizing the platform's branding, appearance, and search engine optimization settings.
+
+## Overview
+
+EaseLMS provides comprehensive branding customization to replace default EaseLMS branding with your own:
+
+- **Platform identity** - Name and description
+- **Visual branding** - Logos and favicon
+- **SEO optimization** - Meta tags and social sharing
+- **Email branding** - Consistent branding in notifications
+- **Theme support** - Light and dark mode compatibility
+
+<Info>
+  All branding changes apply instantly across your entire platform, including the admin panel, learner interface, and email notifications.
+</Info>
+
+## Accessing brand settings
+
+Configure branding from the admin dashboard:
+
+<Steps>
+  <Step title="Navigate to settings">
+    Go to **Admin → Settings** in the sidebar.
+  </Step>
+  
+  <Step title="Select brand tab">
+    Click the **Brand** tab to access branding options.
+  </Step>
+  
+  <Step title="Edit mode">
+    Click the **Edit** button to enable editing of brand settings.
+  </Step>
+  
+  <Step title="Save changes">
+    After making changes, click **Save** to apply them platform-wide.
+  </Step>
+</Steps>
+
+<Tip>
+  Changes are saved to the database and take effect immediately. No server restart required.
+</Tip>
+
+## Platform identity
+
+### Platform name
+
+Your platform's name appears throughout the application:
+
+- Browser tab titles
+- Email headers and subject lines
+- Admin dashboard header
+- Login pages
+- Footer copyright
+
+**Example:**
+```
+EaseLMS → Your Academy Name
+```
+
+### Platform description
+
+A brief description of your platform used for:
+
+- SEO meta descriptions (if no custom SEO description is set)
+- Social media sharing
+- Email templates
+- About sections
+
+**Character limit:** None, but keep it concise (recommended 150-200 characters)
+
+**Example:**
+```
+Your Academy Name is a modern learning platform offering 
+professional development courses in technology, business, 
+and creative skills.
+```
+
+## Visual branding
+
+### Logo configuration
+
+EaseLMS uses two logo versions to ensure visibility in both light and dark modes:
+
+<CardGroup cols={2}>
+  <Card title="Logo (Dark/Black)" icon="sun">
+    Displayed in **light mode** and on **light backgrounds**.
+    
+    Use a dark-colored logo that contrasts well with white/light backgrounds.
+  </Card>
+  
+  <Card title="Logo (Light/White)" icon="moon">
+    Displayed in **dark mode** and on **dark backgrounds**.
+    
+    Use a light-colored logo that contrasts well with black/dark backgrounds.
+  </Card>
+</CardGroup>
+
+#### Logo requirements
+
+**Format:**
+- SVG (recommended for scalability)
+- PNG with transparent background
+- JPEG (not recommended - no transparency)
+
+**Dimensions:**
+- Width: 150-300px recommended
+- Height: 40-60px recommended
+- Aspect ratio: Maintain consistent proportions
+
+**File size:**
+- Maximum: 5MB
+- Recommended: Under 500KB for fast loading
+
+**Best practices:**
+- Use vector format (SVG) for crisp display at all sizes
+- Ensure transparent background for PNG files
+- Test logo visibility on both light and dark backgrounds
+- Keep logos simple and readable at small sizes
+
+<Warning>
+  SVG logos may not display in PDF certificates. For certificate compatibility, also provide PNG versions.
+</Warning>
+
+### Uploading logos
+
+<Steps>
+  <Step title="Click upload area">
+    In Brand Settings, click the upload area for the logo you want to change (dark or light).
+  </Step>
+  
+  <Step title="Select file">
+    Choose your logo file from your computer. The file will upload automatically.
+  </Step>
+  
+  <Step title="Preview">
+    The preview shows how your logo looks on the appropriate background color.
+  </Step>
+  
+  <Step title="Save settings">
+    Click **Save** to apply the new logo platform-wide.
+  </Step>
+</Steps>
+
+### Favicon
+
+The favicon is the small icon that appears in:
+
+- Browser tabs
+- Bookmark lists
+- Browser history
+- Mobile home screen shortcuts
+
+**Requirements:**
+- **Format**: PNG, ICO, or SVG
+- **Size**: 512x512px (recommended) or 256x256px minimum
+- **Shape**: Square
+- **File size**: Under 100KB
+
+**Best practices:**
+- Use simple, recognizable design
+- Ensure visibility at 16x16px (browser tab size)
+- Avoid fine details that won't be visible when scaled down
+- Use high contrast colors
+
+<Tip>
+  Upload a 512x512px favicon and browsers will automatically scale it down to appropriate sizes.
+</Tip>
+
+## Contact and URL settings
+
+### Contact email
+
+The primary contact email for your platform:
+
+**Used in:**
+- Email footers and support links
+- Contact forms
+- Reply-to address for notifications
+- Support documentation
+
+**Example:**
+```
+support@youracademy.com
+```
+
+### App URL
+
+The base URL where your platform is hosted:
+
+**Used in:**
+- Email templates (for generating links)
+- Course sharing links
+- Certificate verification URLs
+- API responses
+
+**Format:**
+```
+https://yourdomain.com
+```
+
+<Note>
+  Include the protocol (`https://`) but no trailing slash. Update this when moving between development and production.
+</Note>
+
+## SEO settings
+
+Optimize your platform for search engines and social media sharing.
+
+### SEO title
+
+Custom title for search engine results:
+
+- **Default**: Uses platform name if not set
+- **Length**: 50-60 characters recommended
+- **Format**: Include key terms and brand name
+
+**Example:**
+```
+Online Learning Platform | Your Academy Name
+```
+
+### SEO description
+
+Description shown in search results and social media previews:
+
+- **Default**: Uses platform description if not set
+- **Length**: 150-160 characters recommended
+- **Content**: Clearly describe what your platform offers
+
+**Example:**
+```
+Learn new skills with expert-led online courses in technology, 
+business, and creative fields. Start learning today with Your 
+Academy Name.
+```
+
+### SEO keywords
+
+Comma-separated keywords for search engines:
+
+- **Format**: `keyword1, keyword2, keyword3`
+- **Quantity**: 5-10 keywords recommended
+- **Relevance**: Focus on terms your audience searches for
+
+**Example:**
+```
+online learning, professional development, tech courses, 
+business training, creative skills
+```
+
+<Info>
+  Modern search engines rely less on meta keywords, but they can still provide context. Focus more on quality content and descriptions.
+</Info>
+
+### SEO image (Open Graph)
+
+Image displayed when sharing your platform on social media:
+
+**Requirements:**
+- **Format**: PNG or JPEG
+- **Dimensions**: 1200x630px (Open Graph standard)
+- **File size**: Under 5MB (under 1MB recommended)
+- **Content**: Branded image with text overlay explaining your platform
+
+**Used on:**
+- Facebook shares
+- Twitter cards
+- LinkedIn posts
+- WhatsApp previews
+- Slack link unfurls
+
+**Best practices:**
+- Include your logo
+- Add descriptive text
+- Use high-quality images
+- Ensure text is readable at thumbnail size
+- Test previews using social media debugging tools
+
+<Tip>
+  Use tools like Canva or Figma to create professional Open Graph images with templates specifically for 1200x630px.
+</Tip>
+
+## Theme support
+
+EaseLMS includes built-in light and dark mode support.
+
+### How theming works
+
+- **System preference** - Detects user's OS theme preference
+- **Manual toggle** - Users can override with their preference
+- **Persistent** - Theme choice saved in user preferences
+- **Responsive** - Logos and colors adapt automatically
+
+### Logo adaptation
+
+The platform automatically switches logos based on theme:
+
+| Theme | Logo Used | Background |
+|-------|-----------|------------|
+| Light mode | Dark/Black logo | Light backgrounds |
+| Dark mode | Light/White logo | Dark backgrounds |
+
+### Email theme support
+
+Email templates support both light and dark modes:
+
+- Recipient's email client determines theme
+- Appropriate logo version displayed
+- Colors optimized for readability
+- Consistent branding in all modes
+
+<Note>
+  Not all email clients support dark mode. Emails gracefully fall back to light mode when needed.
+</Note>
+
+## Branding in emails
+
+All email notifications automatically include your branding:
+
+### Email header
+
+- Platform logo (theme-appropriate version)
+- Platform name in subject line
+- Branded header background
+
+### Email content
+
+- Platform name in greetings and messaging
+- Consistent brand voice and tone
+- Branded buttons and CTAs
+
+### Email footer
+
+- Contact email for support
+- App URL for navigation
+- Platform name in copyright notice
+- Links back to platform
+
+<Tip>
+  Update brand settings to immediately affect all future emails. Test by triggering an enrollment or completion.
+</Tip>
+
+## Branding checklist
+
+Use this checklist to ensure complete branding customization:
+
+### Essential branding
+
+- [ ] Platform name configured
+- [ ] Platform description written
+- [ ] Dark logo uploaded and previewed
+- [ ] Light logo uploaded and previewed
+- [ ] Favicon uploaded (512x512px)
+- [ ] Contact email set
+- [ ] App URL configured
+
+### SEO optimization
+
+- [ ] SEO title defined (50-60 characters)
+- [ ] SEO description written (150-160 characters)
+- [ ] SEO keywords added (5-10 relevant terms)
+- [ ] Open Graph image uploaded (1200x630px)
+
+### Testing
+
+- [ ] Verify logos in light mode
+- [ ] Verify logos in dark mode
+- [ ] Check favicon in browser tab
+- [ ] Test email branding (send test enrollment)
+- [ ] Preview social media sharing with OG image
+- [ ] Confirm contact email is monitored
+- [ ] Verify all links work correctly
+
+## Best practices
+
+### Professional branding
+
+- **Consistency** - Use the same logos and colors across all materials
+- **Quality** - Invest in professional logo design
+- **Simplicity** - Keep branding clean and recognizable
+- **Scalability** - Ensure logos look good at all sizes
+
+### SEO optimization
+
+- **Keywords** - Research what your audience searches for
+- **Descriptions** - Write clear, compelling copy
+- **Images** - Use high-quality, relevant images
+- **Updates** - Refresh SEO content periodically
+
+### User experience
+
+- **Visibility** - Ensure logos are readable on all backgrounds
+- **Accessibility** - Maintain sufficient color contrast
+- **Performance** - Optimize image file sizes for fast loading
+- **Mobile** - Test branding on mobile devices
+
+<Warning>
+  Large image files can slow down your platform. Compress images without sacrificing quality using tools like TinyPNG or ImageOptim.
+</Warning>

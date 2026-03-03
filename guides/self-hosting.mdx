@@ -1,0 +1,638 @@
+---
+title: Self-Hosting Guide
+description: Complete guide to self-hosting EaseLMS on your own infrastructure with full control
+---
+
+This guide covers self-hosting EaseLMS on your own server infrastructure, giving you complete control over your data and deployment.
+
+## Why Self-Host?
+
+Self-hosting EaseLMS provides:
+
+- Complete control over your data and infrastructure
+- No vendor lock-in or platform dependencies
+- Custom security and compliance requirements
+- Cost optimization for large-scale deployments
+- Ability to modify and extend the platform
+
+<Note>
+  For most users, we recommend using managed platforms like Vercel or Railway. Self-hosting requires more technical expertise.
+</Note>
+
+## System Requirements
+
+### Minimum Requirements
+
+- **CPU**: 2 cores
+- **RAM**: 4GB
+- **Storage**: 20GB SSD
+- **OS**: Ubuntu 20.04+ or Debian 11+
+- **Node.js**: 18.0 or higher
+- **Network**: Public IP address
+
+### Recommended for Production
+
+- **CPU**: 4+ cores
+- **RAM**: 8GB+
+- **Storage**: 50GB+ SSD
+- **Bandwidth**: Unlimited or high limit
+- **Load Balancer**: For high availability
+
+## Deployment Options
+
+Choose your deployment method:
+
+1. **Docker Compose** - Easiest, recommended for most
+2. **PM2 with Node.js** - Direct deployment
+3. **Kubernetes** - For enterprise scale
+
+## Option 1: Docker Deployment
+
+The recommended approach for self-hosting.
+
+### Prerequisites
+
+<Steps>
+  <Step title="Install Docker">
+    ```bash
+    # Update package index
+    sudo apt update
+
+    # Install Docker
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+
+    # Add user to docker group
+    sudo usermod -aG docker $USER
+
+    # Install Docker Compose
+    sudo apt install docker-compose
+    ```
+  </Step>
+
+  <Step title="Verify installation">
+    ```bash
+    docker --version
+    docker-compose --version
+    ```
+  </Step>
+</Steps>
+
+### Setup Application
+
+<Steps>
+  <Step title="Clone repository">
+    ```bash
+    git clone https://github.com/enyojoo/easelms.git
+    cd easelms
+    ```
+  </Step>
+
+  <Step title="Create Dockerfile">
+    Create `apps/lms/Dockerfile`:
+
+    ```dockerfile
+    FROM node:18-alpine AS base
+
+    # Dependencies
+    FROM base AS deps
+    RUN apk add --no-cache libc6-compat
+    WORKDIR /app
+
+    COPY package.json package-lock.json* ./
+    RUN npm ci
+
+    # Builder
+    FROM base AS builder
+    WORKDIR /app
+    COPY --from=deps /app/node_modules ./node_modules
+    COPY . .
+
+    ENV NEXT_TELEMETRY_DISABLED 1
+    RUN npm run build
+
+    # Runner
+    FROM base AS runner
+    WORKDIR /app
+
+    ENV NODE_ENV production
+    ENV NEXT_TELEMETRY_DISABLED 1
+
+    RUN addgroup --system --gid 1001 nodejs
+    RUN adduser --system --uid 1001 nextjs
+
+    COPY --from=builder /app/public ./public
+    COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+    COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+    USER nextjs
+
+    EXPOSE 3000
+    ENV PORT 3000
+
+    CMD ["node", "server.js"]
+    ```
+  </Step>
+
+  <Step title="Create docker-compose.yml">
+    Create in project root:
+
+    ```yaml
+    version: '3.8'
+
+    services:
+      app:
+        build:
+          context: ./apps/lms
+          dockerfile: Dockerfile
+        ports:
+          - "3000:3000"
+        environment:
+          - NODE_ENV=production
+          - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+          - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+          - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+          - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+          - AWS_REGION=${AWS_REGION}
+          - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+          - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+          - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+          - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+          - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+          - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+          - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
+        restart: unless-stopped
+        networks:
+          - easelms
+
+    networks:
+      easelms:
+        driver: bridge
+    ```
+  </Step>
+
+  <Step title="Create .env file">
+    Create `.env` in project root with all your environment variables:
+
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+    SUPABASE_SERVICE_ROLE_KEY=eyJ...
+    NEXT_PUBLIC_APP_URL=https://yourdomain.com
+    # ... add all other variables
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    ```bash
+    # Build and start
+    docker-compose up -d
+
+    # View logs
+    docker-compose logs -f app
+
+    # Check status
+    docker-compose ps
+    ```
+  </Step>
+</Steps>
+
+### Docker Management Commands
+
+```bash
+# Stop application
+docker-compose down
+
+# Restart application
+docker-compose restart
+
+# Update application
+git pull
+docker-compose build
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Remove everything (including volumes)
+docker-compose down -v
+```
+
+## Option 2: PM2 Deployment
+
+Direct Node.js deployment with PM2 process manager.
+
+### Prerequisites
+
+<Steps>
+  <Step title="Install Node.js">
+    ```bash
+    # Install Node.js 18
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt install -y nodejs
+
+    # Verify
+    node --version
+    npm --version
+    ```
+  </Step>
+
+  <Step title="Install PM2">
+    ```bash
+    sudo npm install -g pm2
+    ```
+  </Step>
+</Steps>
+
+### Deploy Application
+
+<Steps>
+  <Step title="Clone and install">
+    ```bash
+    git clone https://github.com/enyojoo/easelms.git
+    cd easelms
+    npm install
+    ```
+  </Step>
+
+  <Step title="Create environment file">
+    Create `apps/lms/.env.local` with all your variables.
+  </Step>
+
+  <Step title="Build application">
+    ```bash
+    cd apps/lms
+    npm run build
+    ```
+  </Step>
+
+  <Step title="Create PM2 ecosystem file">
+    Create `ecosystem.config.js`:
+
+    ```javascript
+    module.exports = {
+      apps: [{
+        name: 'easelms',
+        cwd: './apps/lms',
+        script: 'npm',
+        args: 'start',
+        env: {
+          NODE_ENV: 'production',
+          PORT: 3000
+        },
+        instances: 'max',
+        exec_mode: 'cluster',
+        autorestart: true,
+        watch: false,
+        max_memory_restart: '1G',
+      }]
+    };
+    ```
+  </Step>
+
+  <Step title="Start with PM2">
+    ```bash
+    pm2 start ecosystem.config.js
+    pm2 save
+    pm2 startup
+    ```
+  </Step>
+</Steps>
+
+### PM2 Management Commands
+
+```bash
+# View status
+pm2 status
+
+# View logs
+pm2 logs easelms
+
+# Restart
+pm2 restart easelms
+
+# Stop
+pm2 stop easelms
+
+# Monitor
+pm2 monit
+
+# Update application
+git pull
+cd apps/lms
+npm install
+npm run build
+pm2 restart easelms
+```
+
+## Nginx Reverse Proxy
+
+Set up Nginx as a reverse proxy for better performance and SSL.
+
+<Steps>
+  <Step title="Install Nginx">
+    ```bash
+    sudo apt update
+    sudo apt install nginx
+    ```
+  </Step>
+
+  <Step title="Create Nginx configuration">
+    Create `/etc/nginx/sites-available/easelms`:
+
+    ```nginx
+    server {
+        listen 80;
+        server_name yourdomain.com www.yourdomain.com;
+
+        location / {
+            proxy_pass http://localhost:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Increase upload size for videos
+        client_max_body_size 500M;
+    }
+    ```
+  </Step>
+
+  <Step title="Enable site">
+    ```bash
+    sudo ln -s /etc/nginx/sites-available/easelms /etc/nginx/sites-enabled/
+    sudo nginx -t
+    sudo systemctl restart nginx
+    ```
+  </Step>
+
+  <Step title="Install SSL certificate">
+    ```bash
+    sudo apt install certbot python3-certbot-nginx
+    sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+    ```
+  </Step>
+</Steps>
+
+## Database Setup
+
+While we recommend using Supabase's hosted PostgreSQL, you can self-host the database too.
+
+<Warning>
+  Self-hosting the database requires significant expertise in PostgreSQL administration, backups, and security.
+</Warning>
+
+### Self-Hosted PostgreSQL (Optional)
+
+```bash
+# Install PostgreSQL
+sudo apt install postgresql postgresql-contrib
+
+# Create database and user
+sudo -u postgres psql
+CREATE DATABASE easelms;
+CREATE USER easelms_user WITH PASSWORD 'strong_password';
+GRANT ALL PRIVILEGES ON DATABASE easelms TO easelms_user;
+\q
+```
+
+Then modify your Supabase connection strings to point to your local database.
+
+## Security Hardening
+
+### Firewall Configuration
+
+```bash
+# Install UFW
+sudo apt install ufw
+
+# Allow SSH
+sudo ufw allow 22
+
+# Allow HTTP and HTTPS
+sudo ufw allow 80
+sudo ufw allow 443
+
+# Enable firewall
+sudo ufw enable
+```
+
+### Automatic Security Updates
+
+```bash
+sudo apt install unattended-upgrades
+sudo dpkg-reconfigure --priority=low unattended-upgrades
+```
+
+### Fail2Ban for SSH Protection
+
+```bash
+sudo apt install fail2ban
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
+
+## Monitoring and Logging
+
+### Set Up Monitoring
+
+```bash
+# Install htop for resource monitoring
+sudo apt install htop
+
+# Monitor with PM2 (if using PM2)
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 10M
+pm2 set pm2-logrotate:retain 7
+```
+
+### Application Logs
+
+```bash
+# Docker logs
+docker-compose logs -f --tail=100
+
+# PM2 logs
+pm2 logs --lines 100
+
+# Nginx logs
+sudo tail -f /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log
+```
+
+## Backup Strategy
+
+### Automated Backups
+
+Create backup script `/home/user/backup.sh`:
+
+```bash
+#!/bin/bash
+
+BACKUP_DIR="/home/user/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
+
+# Backup application files
+tar -czf $BACKUP_DIR/easelms_$DATE.tar.gz /home/user/easelms
+
+# Backup database (if self-hosted)
+pg_dump -U easelms_user easelms > $BACKUP_DIR/db_$DATE.sql
+
+# Keep only last 7 days of backups
+find $BACKUP_DIR -type f -mtime +7 -delete
+
+echo "Backup completed: $DATE"
+```
+
+Set up cron job:
+
+```bash
+crontab -e
+# Add: Daily backup at 2 AM
+0 2 * * * /home/user/backup.sh
+```
+
+## Performance Optimization
+
+### Enable Gzip in Nginx
+
+Add to `/etc/nginx/nginx.conf`:
+
+```nginx
+gzip on;
+gzip_vary on;
+gzip_min_length 10240;
+gzip_proxied expired no-cache no-store private auth;
+gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json;
+```
+
+### Enable Caching
+
+In Nginx configuration:
+
+```nginx
+location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+```
+
+## Scaling Considerations
+
+### Horizontal Scaling
+
+For high traffic:
+
+1. Deploy multiple instances behind a load balancer
+2. Use Redis for session storage
+3. Use CDN for static assets
+4. Consider container orchestration (Kubernetes)
+
+### Database Optimization
+
+- Enable connection pooling
+- Add read replicas for read-heavy workloads
+- Regular VACUUM and ANALYZE operations
+- Monitor slow queries
+
+## Troubleshooting
+
+### Application won't start
+
+```bash
+# Check logs
+docker-compose logs
+# or
+pm2 logs
+
+# Verify environment variables
+env | grep NEXT_PUBLIC
+
+# Check port availability
+sudo netstat -tlnp | grep 3000
+```
+
+### High memory usage
+
+```bash
+# Monitor resources
+htop
+
+# For Docker
+docker stats
+
+# Restart application
+docker-compose restart
+# or
+pm2 restart easelms
+```
+
+### SSL certificate issues
+
+```bash
+# Test Nginx configuration
+sudo nginx -t
+
+# Renew certificate
+sudo certbot renew
+
+# Check certificate status
+sudo certbot certificates
+```
+
+## Maintenance
+
+### Regular Updates
+
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade
+
+# Update application
+cd easelms
+git pull
+npm install
+npm run build
+docker-compose restart
+# or
+pm2 restart easelms
+```
+
+### Health Checks
+
+Create monitoring script:
+
+```bash
+#!/bin/bash
+
+URL="http://localhost:3000"
+RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+
+if [ $RESPONSE -ne 200 ]; then
+    echo "Application is down! Response: $RESPONSE"
+    # Send alert (email, Slack, etc.)
+    pm2 restart easelms
+fi
+```
+
+## Next Steps
+
+After self-hosting:
+
+1. Set up monitoring and alerting
+2. Configure automated backups
+3. Test disaster recovery procedures
+4. Optimize performance based on usage
+5. Plan for scaling as you grow
+
+<Note>
+  Need help with self-hosting? Join our community or consider our [hosted service](https://www.easelms.org/hosted) for a managed solution.
+</Note>

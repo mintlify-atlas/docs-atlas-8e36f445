@@ -1,0 +1,308 @@
+---
+title: "System Architecture"
+description: "Deep dive into EaseLMS architecture, tech stack, and monorepo structure"
+---
+
+## Overview
+
+EaseLMS is built on a modern, scalable architecture leveraging Next.js 16 with the App Router, TypeScript for type safety, and a monorepo structure managed by Turborepo. The system is designed to be self-hostable while maintaining cloud-native capabilities.
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client Layer                          │
+│  Next.js App Router • React 19 • TanStack Query • Tailwind  │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────────────┐
+│                    Application Layer                         │
+│  Server Components • API Routes • Server Actions • Middleware│
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────────────┐
+│                     Service Layer                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ Supabase │  │   AWS    │  │ Payment  │  │  Email   │   │
+│  │   Auth   │  │ S3/CDN   │  │ Gateways │  │ SendGrid │   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────────────────┐
+│                      Data Layer                              │
+│            Supabase PostgreSQL with RLS                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Tech Stack
+
+### Frontend
+
+- **Framework**: Next.js 16 with App Router
+- **Language**: TypeScript 5.0+
+- **UI Library**: React 19
+- **Styling**: Tailwind CSS
+- **Components**: Radix UI + shadcn/ui
+- **State Management**: TanStack Query (React Query)
+- **Forms**: React Hook Form + Zod validation
+- **Video Player**: Media Chrome for HLS streaming
+
+### Backend
+
+- **Runtime**: Node.js 18.0+
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth with Row Level Security (RLS)
+- **File Storage**: AWS S3 + CloudFront/Azure Front Door CDN
+- **Video Processing**: AWS MediaConvert for HLS transcoding
+- **Payments**: Stripe & Flutterwave
+- **Email**: SendGrid
+- **PDF Generation**: PDFKit with custom fonts
+
+### Infrastructure
+
+- **Monorepo**: Turborepo
+- **Package Manager**: npm 10.0+
+- **Deployment**: Vercel (recommended) or self-hosted
+- **CDN**: CloudFront or Azure Front Door
+
+## Monorepo Structure
+
+EaseLMS uses Turborepo to manage a monorepo with multiple applications:
+
+```
+easelms/
+├── apps/
+│   ├── lms/                    # Main LMS application
+│   │   ├── app/                # Next.js App Router
+│   │   │   ├── admin/          # Admin dashboard
+│   │   │   ├── learner/        # Learner interface
+│   │   │   ├── api/            # API routes
+│   │   │   └── auth/           # Authentication pages
+│   │   ├── components/         # React components
+│   │   ├── lib/                # Core libraries
+│   │   │   ├── aws/            # S3 & MediaConvert
+│   │   │   ├── supabase/       # Database & auth clients
+│   │   │   ├── payments/       # Payment integrations
+│   │   │   ├── certificates/   # PDF generation
+│   │   │   ├── email/          # Email service
+│   │   │   └── react-query/    # Query hooks & cache
+│   │   ├── hooks/              # Custom React hooks
+│   │   ├── utils/              # Utility functions
+│   │   ├── middleware.ts       # Auth & CORS middleware
+│   │   └── supabase/           # Database migrations
+│   └── website/                # Marketing landing page
+├── components/                 # Shared components
+├── package.json                # Root workspace config
+└── turbo.json                  # Turborepo configuration
+```
+
+### Workspace Configuration
+
+The monorepo uses npm workspaces with Turborepo for build optimization:
+
+```json title="package.json"
+{
+  "name": "easelms-monorepo",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint"
+  }
+}
+```
+
+### Turborepo Pipeline
+
+```json title="turbo.json"
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
+```
+
+## Application Architecture
+
+### Middleware Layer
+
+The middleware handles authentication, session management, and CORS:
+
+```typescript title="apps/lms/middleware.ts"
+import { updateSession } from "@/lib/supabase/middleware"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+
+export async function middleware(request: NextRequest) {
+  // Handle CORS for API routes
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const allowedOrigin = process.env.NEXT_PUBLIC_WEBSITE_URL || '*'
+    
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, {
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': allowedOrigin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        },
+      })
+    }
+  }
+  
+  // Update Supabase session
+  return await updateSession(request)
+}
+```
+
+### Route Protection
+
+Routes are protected based on user type (admin, instructor, learner):
+
+- **Public routes**: `/auth/*`, `/forgot-password`
+- **Admin routes**: `/admin/*` (requires `user_type = 'admin'`)
+- **Learner routes**: `/learner/*` (requires authenticated user)
+
+### Data Flow
+
+1. **Client Request** → Server Component/API Route
+2. **Authentication** → Supabase Auth validates session
+3. **Authorization** → Row Level Security (RLS) enforces permissions
+4. **Data Fetching** → TanStack Query with cache management
+5. **Response** → Server-rendered or JSON response
+
+## Database Schema
+
+EaseLMS uses Supabase PostgreSQL with Row Level Security (RLS) policies:
+
+### Core Tables
+
+- `profiles` - User profiles with role-based access
+- `courses` - Course metadata and settings
+- `lessons` - Course content with video/resources
+- `enrollments` - Student course enrollments
+- `progress` - Lesson completion tracking
+- `payments` - Payment records
+- `certificates` - Generated certificates
+- `quiz_questions`, `quiz_attempts`, `quiz_results` - Assessment system
+- `platform_settings` - Branding and configuration
+
+### Row Level Security
+
+All tables use RLS policies to enforce:
+
+- Admins can access all data
+- Instructors can access their courses
+- Learners can only access enrolled courses
+- Public can view published course listings
+
+## Caching Strategy
+
+TanStack Query manages client-side caching with configurable stale times:
+
+```typescript title="lib/react-query/cache-config.ts"
+export const CACHE_TIMES = {
+  COURSES: 5 * 60 * 1000,      // 5 minutes
+  LESSONS: 10 * 60 * 1000,     // 10 minutes
+  PROFILE: 30 * 60 * 1000,     // 30 minutes
+  SETTINGS: 60 * 60 * 1000,    // 1 hour
+}
+```
+
+### Cache Invalidation
+
+- Mutations automatically invalidate related queries
+- Realtime subscriptions update cache on data changes
+- Manual invalidation for critical updates
+
+## Deployment Architecture
+
+### Recommended Setup
+
+```
+┌──────────────┐
+│   Vercel     │ ← Next.js App (SSR + API Routes)
+└──────┬───────┘
+       │
+       ├─────→ Supabase (Database + Auth)
+       ├─────→ AWS S3 (File Storage)
+       ├─────→ CloudFront/Azure FD (CDN)
+       ├─────→ AWS MediaConvert (Video Processing)
+       ├─────→ Stripe/Flutterwave (Payments)
+       └─────→ SendGrid (Emails)
+```
+
+### Scaling Considerations
+
+- **Horizontal scaling**: Next.js serverless functions auto-scale
+- **Database**: Supabase connection pooling
+- **CDN**: Global edge caching for video/assets
+- **Video processing**: Async job queue with MediaConvert
+
+## Performance Optimizations
+
+1. **Server Components**: Reduce client-side JavaScript
+2. **HLS Streaming**: Adaptive bitrate video delivery
+3. **Image Optimization**: Next.js automatic image optimization
+4. **Code Splitting**: Dynamic imports for heavy components
+5. **Database Indexes**: Optimized queries on frequently accessed tables
+6. **CDN Caching**: Static assets served from edge locations
+
+## Security Features
+
+- **Authentication**: Supabase Auth with email/password
+- **Authorization**: Row Level Security (RLS) policies
+- **CORS**: Configured middleware for cross-origin requests
+- **Environment Variables**: Secrets managed securely
+- **Input Validation**: Zod schemas for all forms
+- **SQL Injection Protection**: Parameterized queries via Supabase client
+
+## Development Workflow
+
+```bash
+# Install dependencies
+npm install
+
+# Start development servers (both apps)
+npm run dev
+
+# Build for production
+npm run build
+
+# Lint code
+npm run lint
+```
+
+### Environment Setup
+
+Each app requires its own `.env.local` file:
+
+```bash title="apps/lms/.env.local"
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_key
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/advanced/authentication">
+    Learn about Supabase authentication implementation
+  </Card>
+  <Card title="File Storage" icon="database" href="/advanced/file-storage">
+    Explore AWS S3 and CDN integration
+  </Card>
+  <Card title="Video Processing" icon="video" href="/advanced/video-processing">
+    Understand video upload and HLS streaming
+  </Card>
+</CardGroup>

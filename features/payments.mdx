@@ -1,0 +1,360 @@
+---
+title: Payment integration
+description: Monetize your courses with secure payment processing via Stripe and Flutterwave
+---
+
+EaseLMS integrates with leading payment gateways to help you monetize your courses with secure, reliable payment processing.
+
+## Supported payment gateways
+
+Choose the payment gateway that works best for your audience and location:
+
+<CardGroup cols={2}>
+  <Card title="Stripe" icon="stripe">
+    Global payment processing with support for credit cards, debit cards, and digital wallets in 135+ currencies.
+  </Card>
+  
+  <Card title="Flutterwave" icon="credit-card">
+    African-focused payment gateway supporting cards, mobile money, bank transfers, and USSD in 34+ African countries.
+  </Card>
+</CardGroup>
+
+## Setting up payments
+
+### Stripe setup
+
+<Steps>
+  <Step title="Create a Stripe account">
+    Sign up at [stripe.com](https://stripe.com) and complete account verification.
+  </Step>
+  
+  <Step title="Get API keys">
+    From your Stripe dashboard:
+    - Navigate to Developers → API keys
+    - Copy your Publishable key
+    - Copy your Secret key (keep this secure!)
+  </Step>
+  
+  <Step title="Configure environment variables">
+    Add these to your `.env.local` file:
+    ```bash
+    STRIPE_SECRET_KEY=sk_test_...
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+    ```
+  </Step>
+  
+  <Step title="Test the integration">
+    Create a test course with paid enrollment and use Stripe's test card numbers to verify the integration.
+  </Step>
+</Steps>
+
+### Flutterwave setup
+
+<Steps>
+  <Step title="Create a Flutterwave account">
+    Sign up at [flutterwave.com](https://flutterwave.com) and complete business verification.
+  </Step>
+  
+  <Step title="Get API keys">
+    From your Flutterwave dashboard:
+    - Navigate to Settings → API
+    - Copy your Public key
+    - Copy your Secret key
+  </Step>
+  
+  <Step title="Configure environment variables">
+    Add these to your `.env.local` file:
+    ```bash
+    FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST-...
+    NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=FLWPUBK_TEST-...
+    ```
+  </Step>
+  
+  <Step title="Test the integration">
+    Use Flutterwave's test mode to verify payments work correctly before going live.
+  </Step>
+</Steps>
+
+<Warning>
+  Never commit API keys to version control. Always use environment variables and keep secret keys secure.
+</Warning>
+
+## Currency support
+
+EaseLMS supports multiple currencies based on your payment gateway:
+
+### Default currency
+
+Set your platform's default currency in **Settings → Platform**:
+- **USD** - US Dollar (recommended for Stripe, global audience)
+- **NGN** - Nigerian Naira (recommended for Flutterwave, African audience)
+
+### Per-course currency
+
+While creating or editing a course, you can:
+- Use the platform default currency
+- Override with a specific currency for that course
+- Display prices in the selected currency
+
+<Info>
+  The default currency setting helps streamline course creation, but you have full flexibility to set different currencies for individual courses.
+</Info>
+
+## Payment flow
+
+Understand how payments work from the learner's perspective:
+
+<Steps>
+  <Step title="Select a paid course">
+    Learner browses the course catalog and selects a course with paid enrollment.
+  </Step>
+  
+  <Step title="View course details">
+    The course page displays:
+    - Course price in the configured currency
+    - "Purchase Course" button
+    - Payment gateway options (Stripe/Flutterwave)
+  </Step>
+  
+  <Step title="Initiate payment">
+    Learner clicks "Purchase Course" and selects their preferred payment method:
+    
+    **Stripe checkout:**
+    - Credit/debit card payment
+    - Secure hosted checkout page
+    - Support for 3D Secure authentication
+    
+    **Flutterwave checkout:**
+    - Card payments
+    - Mobile money (MTN, Airtel, etc.)
+    - Bank transfer
+    - USSD codes
+  </Step>
+  
+  <Step title="Process payment">
+    The payment gateway securely processes the transaction and returns the result to EaseLMS.
+  </Step>
+  
+  <Step title="Confirm enrollment">
+    On successful payment:
+    - Learner automatically enrolled in the course
+    - Payment confirmation email sent
+    - Receipt generated
+    - Immediate course access granted
+  </Step>
+</Steps>
+
+### Payment failure handling
+
+If a payment fails:
+- Learner sees a clear error message
+- Payment failure email sent (if configured)
+- No enrollment created
+- Learner can retry payment
+- Admin notified of failed transaction
+
+## Payment webhooks
+
+EaseLMS uses webhooks to receive real-time payment confirmations from payment gateways.
+
+### How webhooks work
+
+1. **Payment processed** - Gateway processes the payment
+2. **Webhook sent** - Gateway sends confirmation to your server
+3. **Verification** - EaseLMS verifies the webhook authenticity
+4. **Enrollment created** - System creates enrollment and sends notifications
+5. **User notified** - Learner receives confirmation email
+
+### Webhook endpoints
+
+EaseLMS provides these webhook endpoints:
+
+- **Stripe webhook**: `/api/webhooks/stripe`
+- **Flutterwave webhook**: `/api/webhooks/flutterwave`
+
+<Note>
+  Webhooks ensure reliable payment processing even if the user closes their browser before the payment completes.
+</Note>
+
+## Transaction management
+
+Track and manage all payment transactions from the admin dashboard.
+
+### Viewing purchases
+
+Access purchase history in **Admin → Purchases**:
+
+- Transaction ID and reference
+- Learner name and email
+- Course purchased
+- Amount and currency
+- Payment gateway used
+- Transaction date and time
+- Payment status (success/failed)
+
+### Payment records
+
+Each payment record includes:
+
+<CardGroup cols={2}>
+  <Card title="Transaction details" icon="receipt">
+    Complete information about the payment including amount, currency, and gateway.
+  </Card>
+  
+  <Card title="User information" icon="user">
+    Learner details including name, email, and enrollment date.
+  </Card>
+  
+  <Card title="Course details" icon="book">
+    Course title, ID, and enrollment status.
+  </Card>
+  
+  <Card title="Payment metadata" icon="database">
+    Transaction ID, payment method, and gateway-specific data.
+  </Card>
+</CardGroup>
+
+### Exporting data
+
+Export payment data for accounting and reporting:
+- Download transaction history as CSV
+- Filter by date range, course, or payment gateway
+- Include metadata for reconciliation
+
+## Email notifications
+
+Automatic email notifications keep everyone informed about transactions:
+
+### Learner emails
+
+**Payment confirmation**
+- Sent immediately after successful payment
+- Includes transaction ID and amount
+- Course access link
+- Receipt/invoice
+
+**Payment failed**
+- Sent when payment fails
+- Includes failure reason
+- Retry instructions
+
+### Admin emails
+
+**New payment notification**
+- Sent when payment succeeds
+- Includes learner details
+- Transaction amount and ID
+- Link to admin dashboard
+
+<Tip>
+  Configure email settings in **Settings → Platform** to control which notifications are sent.
+</Tip>
+
+## Multi-currency handling
+
+When working with multiple currencies:
+
+### Exchange rates
+
+Optionally configure exchange rate API for currency conversion:
+
+```bash
+EXCHANGERATE_API_KEY=your_api_key
+```
+
+This enables:
+- Real-time currency conversion
+- Display prices in multiple currencies
+- Accurate reporting across currencies
+
+### Currency display
+
+Courses display prices in their configured currency:
+- **USD** - $99.00
+- **NGN** - ₦35,000.00
+
+The currency symbol and formatting adjust automatically.
+
+## Testing payments
+
+### Test mode
+
+Both payment gateways offer test modes for safe testing:
+
+**Stripe test cards:**
+```
+Success: 4242 4242 4242 4242
+3D Secure: 4000 0025 0000 3155
+Declined: 4000 0000 0000 9995
+```
+
+**Flutterwave test mode:**
+- Use test API keys (starting with `FLWSECK_TEST-`)
+- Test cards provided in dashboard
+- Simulate different payment methods
+
+### Testing checklist
+
+<Steps>
+  <Step title="Successful payment">
+    Test that successful payments create enrollments and send confirmation emails.
+  </Step>
+  
+  <Step title="Failed payment">
+    Test that failed payments don't create enrollments and show error messages.
+  </Step>
+  
+  <Step title="Webhook delivery">
+    Verify webhooks are received and processed correctly.
+  </Step>
+  
+  <Step title="Email notifications">
+    Confirm all payment emails are sent with correct information.
+  </Step>
+</Steps>
+
+## Production checklist
+
+Before going live with payments:
+
+- [ ] Switch to production API keys (remove `_TEST` keys)
+- [ ] Enable webhook endpoints in gateway dashboards
+- [ ] Test production payment with real card
+- [ ] Verify SSL certificate is active on your domain
+- [ ] Configure payout settings in gateway dashboard
+- [ ] Set up business verification with payment gateway
+- [ ] Test refund process (if applicable)
+- [ ] Review and comply with payment gateway terms
+
+<Warning>
+  Always test payments thoroughly in test mode before switching to production keys.
+</Warning>
+
+## Security best practices
+
+### API key management
+
+- **Never expose secret keys** - Keep them in server-side environment variables only
+- **Rotate keys regularly** - Update keys periodically for security
+- **Use separate keys** - Different keys for test/production environments
+- **Restrict key permissions** - Use minimum required permissions
+
+### PCI compliance
+
+EaseLMS is designed to minimize PCI compliance requirements:
+- Card data never touches your servers
+- Payment forms hosted by gateways
+- Secure redirects for checkout
+- No card storage on your platform
+
+### Webhook security
+
+Protect webhook endpoints:
+- Verify webhook signatures
+- Use HTTPS for webhook URLs
+- Validate payment amounts
+- Check transaction uniqueness
+
+<Info>
+  EaseLMS automatically handles webhook signature verification to prevent fraudulent payment confirmations.
+</Info>

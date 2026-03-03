@@ -1,0 +1,467 @@
+---
+title: Customization Guide
+description: Learn how to customize EaseLMS branding, features, and integrate payment gateways
+---
+
+EaseLMS provides extensive customization options to make the platform your own. This guide covers branding, feature configuration, and payment integration.
+
+## Platform Branding
+
+Customize your platform's appearance and identity through the admin dashboard.
+
+### Access Branding Settings
+
+<Steps>
+  <Step title="Log in as admin">
+    Sign in with an admin account to access platform settings.
+  </Step>
+
+  <Step title="Navigate to brand settings">
+    Go to **Settings → Brand** in the admin dashboard.
+  </Step>
+</Steps>
+
+### Customizable Elements
+
+#### Platform Name and Description
+
+```
+Platform Name: Your LMS Name
+Platform Description: Your tagline or mission statement
+```
+
+These appear in:
+- Page titles and meta tags
+- Email templates
+- Footer text
+- Welcome messages
+
+#### Logos
+
+Upload two versions of your logo:
+
+- **Light Mode Logo** - Displayed on light backgrounds
+- **Dark Mode Logo** - Displayed on dark backgrounds
+
+<Note>
+  Recommended size: 200x50px (PNG or SVG format). Transparent backgrounds work best.
+</Note>
+
+#### Favicon
+
+Upload a custom favicon that appears in browser tabs.
+
+<Note>
+  Recommended size: 32x32px or 64x64px (ICO, PNG, or SVG format).
+</Note>
+
+#### Contact Information
+
+```
+Contact Email: support@yourdomain.com
+App URL: https://yourdomain.com
+```
+
+Used in:
+- Email templates
+- Footer links
+- Support references
+
+### SEO Configuration
+
+Optimize your platform for search engines:
+
+```
+SEO Title: Your LMS - Learn Online
+SEO Description: Professional online learning platform with courses in...
+SEO Keywords: online learning, courses, education, certification
+SEO Image: URL to your social sharing image
+```
+
+<Note>
+  The SEO image (Open Graph image) should be 1200x630px for optimal social media sharing.
+</Note>
+
+## Theme Customization
+
+EaseLMS uses Tailwind CSS for styling, making it easy to customize colors and design.
+
+### Color Scheme
+
+Edit `apps/lms/app/globals.css` to customize colors:
+
+```css
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;  /* Main brand color */
+    --primary-foreground: 210 40% 98%;
+    /* ... more color variables */
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    /* ... dark mode colors */
+  }
+}
+```
+
+### Custom Fonts
+
+EaseLMS uses the Geist font family. To change:
+
+1. Import your font in `apps/lms/app/layout.tsx`:
+
+```typescript
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" className={inter.className}>
+      {children}
+    </html>
+  );
+}
+```
+
+## Payment Integration
+
+EaseLMS supports two payment gateways: Stripe (global) and Flutterwave (African markets).
+
+### Stripe Integration
+
+#### Setup Stripe
+
+<Steps>
+  <Step title="Create Stripe account">
+    Sign up at [stripe.com](https://stripe.com)
+  </Step>
+
+  <Step title="Get API keys">
+    1. Go to **Developers → API keys**
+    2. Copy your **Publishable key** and **Secret key**
+    3. For testing, use keys starting with `pk_test_` and `sk_test_`
+  </Step>
+
+  <Step title="Add to environment variables">
+    ```env
+    STRIPE_SECRET_KEY=sk_test_...
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+    ```
+  </Step>
+
+  <Step title="Configure webhook">
+    1. Go to **Developers → Webhooks**
+    2. Click **Add endpoint**
+    3. URL: `https://yourdomain.com/api/webhooks/stripe`
+    4. Events: Select `payment_intent.succeeded` and `payment_intent.payment_failed`
+    5. Save the webhook signing secret
+  </Step>
+</Steps>
+
+#### Test Stripe Integration
+
+Use Stripe's test card numbers:
+
+```
+Successful payment: 4242 4242 4242 4242
+Requires authentication: 4000 0025 0000 3155
+Declined: 4000 0000 0000 9995
+Expiry: Any future date
+CVV: Any 3 digits
+```
+
+### Flutterwave Integration
+
+#### Setup Flutterwave
+
+<Steps>
+  <Step title="Create Flutterwave account">
+    Sign up at [flutterwave.com](https://flutterwave.com)
+  </Step>
+
+  <Step title="Get API keys">
+    1. Go to **Settings → API**
+    2. Copy your **Public key** and **Secret key**
+    3. Use test keys for development
+  </Step>
+
+  <Step title="Add to environment variables">
+    ```env
+    FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST-...
+    NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=FLWPUBK_TEST-...
+    ```
+  </Step>
+
+  <Step title="Configure webhook">
+    1. Go to **Settings → Webhooks**
+    2. URL: `https://yourdomain.com/api/webhooks/flutterwave`
+    3. Save the secret hash
+  </Step>
+</Steps>
+
+### Multi-Currency Support
+
+EaseLMS supports multiple currencies through:
+
+1. **User-selected currency** - Stored in user profile
+2. **Automatic conversion** - Using exchangerate-api.com
+3. **Gateway-specific currencies** - Stripe and Flutterwave handle local currencies
+
+#### Configure Currency Exchange
+
+```env
+EXCHANGERATE_API_KEY=your_api_key
+```
+
+Get a free API key at [exchangerate-api.com](https://www.exchangerate-api.com).
+
+### Enrollment Modes
+
+Courses can have different enrollment types:
+
+#### Free Enrollment
+
+```typescript
+enrollment_mode: 'free'
+```
+
+Users can enroll without payment.
+
+#### One-Time Purchase
+
+```typescript
+enrollment_mode: 'buy'
+price: 99.99
+currency: 'USD'
+```
+
+Users pay once for lifetime access.
+
+#### Recurring Subscription
+
+```typescript
+enrollment_mode: 'recurring'
+recurring_price: 29.99
+currency: 'USD'
+```
+
+Monthly subscription model (requires additional setup).
+
+#### Closed Enrollment
+
+By setting `enrollment_mode` to a custom value or managing enrollment manually through the admin panel.
+
+## Email Customization
+
+### Configure SendGrid
+
+<Steps>
+  <Step title="Set up SendGrid account">
+    1. Sign up at [sendgrid.com](https://sendgrid.com)
+    2. Free tier: 100 emails/day
+  </Step>
+
+  <Step title="Verify sender">
+    1. Go to **Settings → Sender Authentication**
+    2. Verify your domain or single sender email
+    3. Complete authentication process
+  </Step>
+
+  <Step title="Generate API key">
+    1. Go to **Settings → API Keys**
+    2. Create new key with **Mail Send** permissions
+    3. Copy the key (shown only once)
+  </Step>
+
+  <Step title="Add to environment variables">
+    ```env
+    SENDGRID_API_KEY=SG.xxx...
+    SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+    SENDGRID_FROM_NAME=Your LMS Name
+    SENDGRID_REPLY_TO=support@yourdomain.com
+    ```
+  </Step>
+</Steps>
+
+### Email Templates
+
+EaseLMS sends these automated emails:
+
+**User Emails:**
+- Welcome email on signup
+- Course enrollment confirmation
+- Course completion notification
+- Certificate ready notification
+- Payment confirmation
+- Payment failure alert
+
+**Admin Emails:**
+- New enrollment notification
+- New payment received
+- Course completion alert
+
+<Note>
+  Email templates automatically use your platform branding (name, logo, colors) configured in Settings → Brand.
+</Note>
+
+## Certificate Customization
+
+Customize certificates for each course.
+
+### Certificate Settings
+
+```typescript
+certificate_enabled: true
+certificate_type: 'completion' | 'achievement' | 'participation'
+certificate_title: 'Certificate of Completion'
+certificate_description: 'Has successfully completed...'
+signature_name: 'John Doe'
+signature_title: 'CEO'
+signature_image: 'url_to_signature_image'
+```
+
+### Certificate Templates
+
+Edit certificate templates in `apps/lms/lib/certificates/`:
+
+```typescript:apps/lms/lib/certificates/template.ts
+export function generateCertificate(data: CertificateData) {
+  // Customize PDF generation
+  // Uses PDFKit library
+}
+```
+
+## Feature Flags
+
+Enable or disable features through platform settings.
+
+### Available Settings
+
+In the `platform_settings` table:
+
+```sql
+-- Currency settings
+default_currency: 'USD'
+
+-- Notification toggles
+course_enrollment_notifications: true
+course_completion_notifications: true
+platform_announcements: true
+user_email_notifications: true
+```
+
+Update through the admin UI or directly in Supabase.
+
+## Course Settings
+
+Customize learning experience per course:
+
+### Progress Tracking
+
+```typescript
+requires_sequential_progress: true  // Must complete lessons in order
+minimum_quiz_score: 80              // Minimum score to pass (0-100)
+```
+
+### Quiz Configuration
+
+```typescript
+quiz_settings: {
+  enabled: true,
+  shuffle_quiz: true,
+  max_attempts: 3,
+  show_correct_answers: true,
+  allow_multiple_attempts: true,
+  time_limit: 3600,  // seconds
+  passing_score: 70   // percentage
+}
+```
+
+### Lesson Types
+
+Supported lesson types:
+
+- **video** - Video content with progress tracking
+- **text** - Rich text content (Tiptap editor)
+- **mixed** - Combination of video and text
+
+## Custom Components
+
+Extend EaseLMS with custom components:
+
+### Add Custom Page
+
+Create a new page in `apps/lms/app/`:
+
+```typescript:apps/lms/app/custom-page/page.tsx
+export default function CustomPage() {
+  return (
+    <div>
+      <h1>Custom Page</h1>
+      {/* Your content */}
+    </div>
+  );
+}
+```
+
+### Add to Navigation
+
+Edit `apps/lms/components/navigation.tsx` to add menu items.
+
+## Advanced Customization
+
+### Modify Database Schema
+
+To add custom fields:
+
+1. Add column in Supabase SQL Editor:
+
+```sql
+ALTER TABLE courses ADD COLUMN custom_field TEXT;
+```
+
+2. Update TypeScript types in `apps/lms/types/`
+
+3. Update forms and components to use new fields
+
+### Custom Authentication
+
+EaseLMS uses Supabase Auth. To customize:
+
+- Modify sign-up flow in `apps/lms/app/auth/`
+- Add OAuth providers in Supabase dashboard
+- Customize email templates in Supabase
+
+## Troubleshooting
+
+### Branding changes not appearing
+
+1. Clear browser cache
+2. Check that changes were saved in database
+3. Restart development server
+
+### Payment gateway not working
+
+1. Verify API keys are correct
+2. Check webhook configuration
+3. Review payment gateway dashboard for errors
+4. Test with provided test cards
+
+### Emails not sending
+
+1. Verify SendGrid API key
+2. Check sender email is verified
+3. Review SendGrid activity log
+4. Check spam folder
+
+## Next Steps
+
+- Review [environment variables](/guides/environment-variables) for all configuration options
+- Set up [deployment](/guides/deployment) for production
+- Explore the codebase to understand component structure

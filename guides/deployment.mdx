@@ -1,0 +1,456 @@
+---
+title: Deployment Guide
+description: Deploy EaseLMS to production on Vercel, Railway, or your own infrastructure
+---
+
+This guide covers deploying EaseLMS to production. We'll walk through deploying on popular platforms and setting up the required services.
+
+## Pre-Deployment Checklist
+
+Before deploying, ensure you have:
+
+- [ ] Supabase project created and database migrated
+- [ ] All environment variables documented
+- [ ] AWS S3 bucket configured (for production)
+- [ ] Payment gateways configured (if using paid courses)
+- [ ] SendGrid account set up (for email notifications)
+- [ ] Domain name ready (optional but recommended)
+
+## Deployment Options
+
+EaseLMS can be deployed to various platforms:
+
+- **Vercel** - Recommended for beginners, zero-config Next.js hosting
+- **Railway** - Easy deployment with PostgreSQL support
+- **Docker** - Self-hosted with full control
+- **Traditional VPS** - Ubuntu/Debian server with PM2
+
+## Deploy to Vercel
+
+Vercel provides the easiest deployment experience for Next.js applications.
+
+<Steps>
+  <Step title="Install Vercel CLI (optional)">
+    ```bash
+    npm install -g vercel
+    ```
+  </Step>
+
+  <Step title="Connect your repository">
+    1. Push your code to GitHub, GitLab, or Bitbucket
+    2. Go to [vercel.com](https://vercel.com) and sign up
+    3. Click **Add New Project**
+    4. Import your repository
+  </Step>
+
+  <Step title="Configure project settings">
+    - **Framework Preset**: Next.js
+    - **Root Directory**: `apps/lms`
+    - **Build Command**: `npm run build`
+    - **Output Directory**: `.next`
+  </Step>
+
+  <Step title="Add environment variables">
+    In the Vercel dashboard, add all your environment variables:
+
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+    SUPABASE_SERVICE_ROLE_KEY=eyJ...
+    NEXT_PUBLIC_APP_URL=https://yourdomain.com
+    AWS_REGION=us-east-1
+    AWS_ACCESS_KEY_ID=AKIA...
+    AWS_SECRET_ACCESS_KEY=wJa...
+    AWS_S3_BUCKET_NAME=your-bucket
+    STRIPE_SECRET_KEY=sk_live_...
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+    SENDGRID_API_KEY=SG...
+    SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+    ```
+
+    <Note>
+      Use production keys, not test keys!
+    </Note>
+  </Step>
+
+  <Step title="Deploy">
+    Click **Deploy** and wait for the build to complete (usually 2-3 minutes).
+  </Step>
+
+  <Step title="Configure domain (optional)">
+    1. Go to **Settings → Domains**
+    2. Add your custom domain
+    3. Update DNS records as instructed
+    4. Update `NEXT_PUBLIC_APP_URL` to your domain
+  </Step>
+</Steps>
+
+### Vercel CLI Deployment
+
+Alternatively, deploy from the command line:
+
+```bash
+cd apps/lms
+vercel
+```
+
+Follow the prompts to deploy.
+
+## Deploy to Railway
+
+Railway offers a great deployment experience with built-in database support.
+
+<Steps>
+  <Step title="Create Railway account">
+    Sign up at [railway.app](https://railway.app)
+  </Step>
+
+  <Step title="Create new project">
+    1. Click **New Project**
+    2. Select **Deploy from GitHub repo**
+    3. Authorize Railway and select your repository
+  </Step>
+
+  <Step title="Configure build settings">
+    Railway should auto-detect Next.js. If not, set:
+
+    - **Build Command**: `cd apps/lms && npm install && npm run build`
+    - **Start Command**: `cd apps/lms && npm start`
+  </Step>
+
+  <Step title="Add environment variables">
+    In the Railway dashboard:
+    1. Go to **Variables** tab
+    2. Add all your environment variables
+    3. Click **Deploy**
+  </Step>
+
+  <Step title="Get deployment URL">
+    Railway provides a URL like `https://your-app.up.railway.app`. Update `NEXT_PUBLIC_APP_URL` to this URL.
+  </Step>
+</Steps>
+
+## Deploy with Docker
+
+For self-hosting with full control over your infrastructure.
+
+### Create Dockerfile
+
+Create `Dockerfile` in `apps/lms/`:
+
+```dockerfile
+FROM node:18-alpine AS base
+
+# Install dependencies
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Build the application
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED 1
+RUN npm run build
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+ENV PORT 3000
+
+CMD ["node", "server.js"]
+```
+
+### Create docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
+    restart: unless-stopped
+```
+
+### Deploy with Docker Compose
+
+```bash
+# Build and start
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+## AWS S3 Setup
+
+AWS S3 is required for production to handle file uploads and video streaming.
+
+<Steps>
+  <Step title="Create S3 Bucket">
+    1. Sign in to [AWS Console](https://console.aws.amazon.com)
+    2. Navigate to **S3**
+    3. Click **Create bucket**
+    4. Choose a unique bucket name (e.g., `easelms-production`)
+    5. Select a region close to your users
+    6. **Uncheck** "Block all public access" (we'll use signed URLs)
+    7. Click **Create bucket**
+  </Step>
+
+  <Step title="Configure CORS">
+    In your bucket settings, go to **Permissions → CORS** and add:
+
+    ```json
+    [
+      {
+        "AllowedHeaders": ["*"],
+        "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+        "AllowedOrigins": ["https://yourdomain.com"],
+        "ExposeHeaders": ["ETag"]
+      }
+    ]
+    ```
+  </Step>
+
+  <Step title="Create IAM User">
+    1. Go to **IAM → Users**
+    2. Click **Add users**
+    3. User name: `easelms-s3-user`
+    4. Access type: **Programmatic access**
+    5. Attach policy: **AmazonS3FullAccess** (or create custom policy)
+    6. Save the Access Key ID and Secret Access Key
+  </Step>
+
+  <Step title="Add to environment variables">
+    ```env
+    AWS_REGION=us-east-1
+    AWS_ACCESS_KEY_ID=AKIA...
+    AWS_SECRET_ACCESS_KEY=wJa...
+    AWS_S3_BUCKET_NAME=easelms-production
+    ```
+  </Step>
+</Steps>
+
+### Optional: CloudFront CDN
+
+For better performance, set up CloudFront:
+
+<Steps>
+  <Step title="Create CloudFront Distribution">
+    1. Go to **CloudFront** in AWS Console
+    2. Click **Create Distribution**
+    3. Origin domain: Select your S3 bucket
+    4. Origin access: **Legacy access identities**
+    5. Create new OAI and grant bucket permissions
+    6. Click **Create distribution**
+  </Step>
+
+  <Step title="Add CloudFront domain to env">
+    ```env
+    AWS_CLOUDFRONT_DOMAIN=d123456.cloudfront.net
+    ```
+  </Step>
+</Steps>
+
+## Database Migration in Production
+
+Run the database migration on your production Supabase instance:
+
+<Steps>
+  <Step title="Access production Supabase">
+    Log in to your production Supabase project
+  </Step>
+
+  <Step title="Run migration">
+    1. Go to **SQL Editor**
+    2. Paste contents of `apps/lms/supabase/migrations/database_setup.sql`
+    3. Click **Run**
+  </Step>
+
+  <Step title="Create admin user">
+    1. Sign up through your production app
+    2. In Supabase, go to **Table Editor → profiles**
+    3. Find your user and change `user_type` to `admin`
+  </Step>
+</Steps>
+
+## Post-Deployment Configuration
+
+### Configure Webhook Endpoints
+
+For payment gateways, set up webhooks:
+
+#### Stripe Webhooks
+
+1. Go to [Stripe Dashboard → Webhooks](https://dashboard.stripe.com/webhooks)
+2. Click **Add endpoint**
+3. Endpoint URL: `https://yourdomain.com/api/webhooks/stripe`
+4. Select events: `payment_intent.succeeded`, `payment_intent.payment_failed`
+5. Save the webhook signing secret to your environment variables
+
+#### Flutterwave Webhooks
+
+1. Go to Flutterwave Dashboard → Settings → Webhooks
+2. Webhook URL: `https://yourdomain.com/api/webhooks/flutterwave`
+3. Save the secret hash
+
+### Verify Email Sending
+
+Test that SendGrid emails are working:
+
+1. Create a test account on your production site
+2. Verify you receive the welcome email
+3. Check spam folder if not received
+4. Verify sender domain in SendGrid if issues persist
+
+## SSL/HTTPS Configuration
+
+Most platforms (Vercel, Railway) provide automatic SSL. For self-hosted:
+
+### Using Let's Encrypt with Nginx
+
+```bash
+# Install certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Get certificate
+sudo certbot --nginx -d yourdomain.com
+
+# Auto-renewal is configured automatically
+```
+
+## Monitoring and Logging
+
+### Vercel Analytics
+
+EaseLMS includes `@vercel/analytics`. It's automatically enabled on Vercel deployments.
+
+### Custom Monitoring
+
+Consider adding:
+- **Sentry** - Error tracking
+- **LogRocket** - Session replay
+- **Plausible** - Privacy-friendly analytics
+
+## Performance Optimization
+
+### Enable Caching
+
+Configure appropriate cache headers in `next.config.js`:
+
+```javascript
+module.exports = {
+  async headers() {
+    return [
+      {
+        source: '/images/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ];
+  },
+};
+```
+
+### Use Image Optimization
+
+Next.js automatically optimizes images. Ensure you're using the `<Image>` component.
+
+## Backup Strategy
+
+### Database Backups
+
+Supabase provides automatic daily backups on paid plans. For custom backups:
+
+```bash
+# Using pg_dump
+pg_dump -h db.xxx.supabase.co -U postgres -d postgres > backup.sql
+```
+
+### File Storage Backups
+
+Enable S3 versioning:
+
+1. Go to your S3 bucket
+2. **Properties → Versioning**
+3. Enable versioning
+
+## Troubleshooting
+
+### Build fails
+
+- Check Node.js version (minimum 18.0)
+- Verify all dependencies are in `package.json`
+- Check build logs for specific errors
+
+### Environment variables not working
+
+- Ensure `NEXT_PUBLIC_` prefix for client variables
+- Redeploy after changing environment variables
+- Check variable names match exactly
+
+### Database connection issues
+
+- Verify Supabase credentials
+- Check that database migration was run
+- Ensure RLS policies are enabled
+
+### File upload not working
+
+- Verify AWS credentials
+- Check S3 bucket permissions
+- Ensure CORS is configured
+
+## Next Steps
+
+After deploying:
+
+1. [Customize your platform](/guides/customization)
+2. Set up your first course
+3. Configure platform branding
+4. Test payment flows
+5. Monitor performance and errors

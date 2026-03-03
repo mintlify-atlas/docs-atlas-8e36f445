@@ -1,0 +1,588 @@
+---
+title: Installation guide
+description: Self-host EaseLMS with complete control over your data and infrastructure
+---
+
+## Self-host EaseLMS
+
+This guide will walk you through setting up EaseLMS on your own infrastructure. You'll have complete control over your data, users, and platform customization.
+
+<Note>
+  Don't want to manage infrastructure? Check out our [hosted service](https://www.easelms.org/hosted) for a fully managed solution.
+</Note>
+
+## Prerequisites
+
+Before you begin, ensure you have the following:
+
+<CardGroup cols={2}>
+  <Card title="Node.js 18.0+" icon="node-js">
+    Download from [nodejs.org](https://nodejs.org/)
+  </Card>
+  <Card title="npm 10.0+" icon="npm">
+    Included with Node.js installation
+  </Card>
+  <Card title="Supabase account" icon="database">
+    Sign up at [supabase.com](https://supabase.com) (free tier available)
+  </Card>
+  <Card title="Git" icon="git">
+    For cloning the repository
+  </Card>
+</CardGroup>
+
+**Optional services:**
+- **AWS account** - For S3 file storage (optional for development)
+- **SendGrid account** - For email notifications
+- **Stripe account** - For accepting payments globally
+- **Flutterwave account** - For African market payments
+
+## Installation steps
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the EaseLMS repository from GitHub:
+
+    ```bash
+    git clone https://github.com/enyojoo/easelms.git
+    cd easelms
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all required packages using npm:
+
+    ```bash
+    npm install
+    ```
+
+    <Note>
+      EaseLMS is a monorepo built with Turborepo. This command installs dependencies for both the LMS app and the marketing website.
+    </Note>
+  </Step>
+
+  <Step title="Set up environment variables">
+    Create a `.env.local` file in the `apps/lms/` directory:
+
+    ```bash
+    cd apps/lms
+    touch .env.local
+    ```
+
+    Add the following environment variables:
+
+    <CodeGroup>
+    ```bash Required - Supabase
+    # Supabase Configuration
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+    ```
+
+    ```bash Optional - AWS S3 Storage
+    # AWS S3 Configuration (optional for development)
+    AWS_REGION=us-east-1
+    AWS_ACCESS_KEY_ID=your_aws_access_key
+    AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+    AWS_S3_BUCKET_NAME=your_bucket_name
+    AWS_CLOUDFRONT_DOMAIN=your_cloudfront_domain
+    ```
+
+    ```bash Optional - Payment Gateways
+    # Stripe Configuration
+    STRIPE_SECRET_KEY=your_stripe_secret_key
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+
+    # Flutterwave Configuration  
+    FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
+    NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=your_flutterwave_public_key
+    ```
+
+    ```bash Optional - Email & Currency
+    # SendGrid Email Service
+    SENDGRID_API_KEY=your_sendgrid_api_key
+    SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+    SENDGRID_FROM_NAME=EaseLMS
+    SENDGRID_REPLY_TO=support@yourdomain.com
+
+    # Currency Exchange Rates (uses exchangerate-api.com)
+    EXCHANGERATE_API_KEY=your_exchangerate_api_key
+
+    # Application URL
+    NEXT_PUBLIC_APP_URL=http://localhost:3000
+    ```
+    </CodeGroup>
+
+    <Warning>
+      Keep your `.env.local` file secure and never commit it to version control. It contains sensitive credentials.
+    </Warning>
+  </Step>
+
+  <Step title="Create a Supabase project">
+    Set up your Supabase database:
+
+    1. Go to [supabase.com](https://supabase.com) and sign in
+    2. Click "New Project"
+    3. Choose your organization
+    4. Enter project details:
+       - **Name** - Your project name (e.g., "easelms-production")
+       - **Database Password** - Strong password for database access
+       - **Region** - Choose the closest region to your users
+    5. Click "Create new project" and wait ~2 minutes for provisioning
+
+    <Note>
+      Supabase free tier includes 500MB database storage, 1GB file storage, and 2GB bandwidth - perfect for getting started.
+    </Note>
+  </Step>
+
+  <Step title="Get Supabase credentials">
+    Retrieve your Supabase API credentials:
+
+    1. Navigate to **Project Settings** → **API**
+    2. Copy the following values:
+       - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+       - **anon/public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`  
+       - **service_role secret key** → `SUPABASE_SERVICE_ROLE_KEY`
+    3. Update your `.env.local` file with these values
+
+    <Warning>
+      The service_role key has full admin access to your database. Keep it secure and never expose it in client-side code.
+    </Warning>
+  </Step>
+
+  <Step title="Run the database migration">
+    Set up your database schema:
+
+    1. In your Supabase project, go to **SQL Editor**
+    2. Click **New Query**
+    3. Open the migration file at `apps/lms/supabase/migrations/database_setup.sql`
+    4. Copy the entire file contents
+    5. Paste into the SQL Editor
+    6. Click **Run** (or press Cmd/Ctrl + Enter)
+    7. Wait for "Success. No rows returned" confirmation
+
+    This migration creates all necessary tables:
+
+    <Accordion title="Database tables created">
+      - `profiles` - User profiles linked to Supabase Auth
+      - `courses` - Course information and settings
+      - `lessons` - Individual lessons within courses
+      - `enrollments` - Student course enrollments
+      - `progress` - Lesson completion tracking
+      - `payments` - Payment records and receipts
+      - `certificates` - Generated course certificates
+      - `instructors` - Instructor profiles
+      - `resources` - Downloadable course materials
+      - `quiz_questions` - Quiz questions and answers
+      - `quiz_settings` - Quiz configuration
+      - `quiz_attempts` - Student quiz attempts
+      - `quiz_results` - Quiz scores and results
+      - `course_instructors` - Links courses to instructors
+      - `course_prerequisites` - Course dependencies
+      - `lesson_resources` - Links lessons to resources
+      - `platform_settings` - Global platform configuration
+    </Accordion>
+  </Step>
+
+  <Step title="Verify the database setup">
+    Confirm your tables were created successfully:
+
+    1. Go to **Table Editor** in Supabase
+    2. You should see all 17 tables listed
+    3. Click on any table to view its structure
+
+    <Note>
+      The migration also creates triggers for automatically updating timestamps and creating user profiles on signup.
+    </Note>
+  </Step>
+
+  <Step title="Start the development server">
+    From the root directory, start the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    This starts both applications:
+    - **LMS Application:** [http://localhost:3000](http://localhost:3000)
+    - **Marketing Website:** [http://localhost:3001](http://localhost:3001)
+
+    <CodeGroup>
+    ```bash Start only LMS app
+    cd apps/lms
+    npm run dev
+    ```
+
+    ```bash Start only website
+    cd apps/website  
+    npm run dev
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Access the application">
+    Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
+
+    You'll be redirected to `/auth/learner/login` - the learner login page.
+  </Step>
+</Steps>
+
+## Create your first admin user
+
+After installation, you need to create an admin account to access the admin dashboard.
+
+<Steps>
+  <Step title="Sign up through the UI">
+    1. Navigate to [http://localhost:3000](http://localhost:3000)
+    2. You'll be redirected to the login page
+    3. Click "Sign Up" to create a new account
+    4. Fill in your details and submit
+  </Step>
+
+  <Step title="Promote user to admin">
+    By default, new users are created with the "user" (learner) role. To make your account an admin:
+
+    1. Go to your Supabase project → **Table Editor**
+    2. Open the `profiles` table
+    3. Find your user record by email
+    4. Change the `user_type` from `user` to `admin`
+    5. Save the changes
+  </Step>
+
+  <Step title="Access the admin dashboard">
+    1. Log out and log back in
+    2. Navigate to `/admin` to access the admin dashboard
+    3. You'll now have access to:
+       - User management
+       - Course creation and editing
+       - Analytics and reports
+       - Payment management
+       - Platform settings
+  </Step>
+</Steps>
+
+<Warning>
+  Only grant admin access to trusted users. Admins have full control over the platform including user data, courses, and payments.
+</Warning>
+
+## Configure platform branding
+
+Customize your EaseLMS instance with your own branding.
+
+<Steps>
+  <Step title="Navigate to brand settings">
+    As an admin, go to **Settings** → **Brand** in the admin dashboard.
+  </Step>
+
+  <Step title="Update platform information">
+    Configure your platform details:
+
+    **Basic information:**
+    - **Platform name** - Your LMS name (appears in sidebar, emails)
+    - **Platform description** - Brief description for metadata
+    - **Contact email** - Support email shown to users
+    - **App URL** - Your domain (used in emails and links)
+
+    **Visual branding:**
+    - **Logo (light mode)** - Logo for light theme
+    - **Logo (dark mode)** - Logo for dark theme  
+    - **Favicon** - Browser tab icon
+
+    **SEO metadata:**
+    - **SEO title** - Browser title and search engine display
+    - **SEO description** - Meta description for search engines
+    - **SEO keywords** - Comma-separated keywords
+    - **SEO image** - Social media preview image
+  </Step>
+
+  <Step title="Upload assets">
+    Upload your brand assets:
+
+    1. Click the upload button for each asset type
+    2. Select your image file
+    3. Wait for upload to AWS S3 (if configured) or Supabase Storage
+    4. Preview the changes in real-time
+
+    <Note>
+      **Recommended sizes:**
+      - Logo: 120x40px (transparent PNG)
+      - Favicon: 32x32px or 64x64px
+      - SEO image: 1200x630px (JPG or PNG)
+    </Note>
+  </Step>
+
+  <Step title="Save your changes">
+    Click "Save Changes" to apply your branding across:
+    - Application UI (sidebar logo)
+    - Email templates (logo and platform name)
+    - Browser tabs (favicon)
+    - Search engines (SEO metadata)
+  </Step>
+</Steps>
+
+## Set up email notifications
+
+Enable automated email notifications for enrollments, completions, and payments.
+
+<Steps>
+  <Step title="Create a SendGrid account">
+    1. Sign up at [sendgrid.com](https://sendgrid.com)
+    2. Verify your email address
+    3. Complete the SendGrid onboarding
+  </Step>
+
+  <Step title="Generate an API key">
+    1. Navigate to **Settings** → **API Keys**
+    2. Click **Create API Key**
+    3. Name it (e.g., "EaseLMS Production")
+    4. Select **Full Access** permissions
+    5. Click **Create & View**
+    6. Copy the API key (shown only once)
+  </Step>
+
+  <Step title="Configure environment variables">
+    Add SendGrid settings to your `.env.local`:
+
+    ```bash
+    SENDGRID_API_KEY=SG.xxxxxxxxxxxxx
+    SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+    SENDGRID_FROM_NAME=Your Platform Name
+    SENDGRID_REPLY_TO=support@yourdomain.com
+    ```
+
+    <Warning>
+      Use a verified sender email. SendGrid requires domain verification for production sending.
+    </Warning>
+  </Step>
+
+  <Step title="Verify sender identity">
+    1. In SendGrid, go to **Settings** → **Sender Authentication**
+    2. Choose **Domain Authentication** (recommended) or **Single Sender Verification**
+    3. Follow the verification steps
+    4. Wait for verification to complete
+  </Step>
+
+  <Step title="Test email delivery">
+    Restart your development server and test:
+
+    1. Create a new user account
+    2. Check your inbox for the welcome email
+    3. Enroll in a course and verify enrollment confirmation
+
+    **Emails automatically sent:**
+    - Welcome email (new user signup)
+    - Enrollment confirmation
+    - Course completion notification  
+    - Certificate ready notification
+    - Payment confirmation/failure
+    - Admin notifications (enrollments, payments, completions)
+  </Step>
+</Steps>
+
+## Configure payment gateways
+
+Accept payments for paid courses using Stripe or Flutterwave.
+
+<Tabs>
+  <Tab title="Stripe (Global)">
+    <Steps>
+      <Step title="Create a Stripe account">
+        1. Sign up at [stripe.com](https://stripe.com)
+        2. Complete business verification
+        3. Activate your account
+      </Step>
+
+      <Step title="Get API credentials">
+        1. Navigate to **Developers** → **API keys**
+        2. Copy your **Publishable key** and **Secret key**
+        3. Use test keys for development, live keys for production
+      </Step>
+
+      <Step title="Configure environment variables">
+        Add to `.env.local`:
+
+        ```bash
+        STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxx
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxx
+        ```
+      </Step>
+
+      <Step title="Set up webhooks">
+        1. In Stripe Dashboard, go to **Developers** → **Webhooks**
+        2. Click **Add endpoint**
+        3. Set URL to `https://yourdomain.com/api/webhooks/stripe`
+        4. Select events: `checkout.session.completed`, `checkout.session.expired`
+        5. Copy the webhook signing secret
+        6. Add to `.env.local`: `STRIPE_WEBHOOK_SECRET=whsec_xxxxx`
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Flutterwave (Africa)">
+    <Steps>
+      <Step title="Create a Flutterwave account">
+        1. Sign up at [flutterwave.com](https://flutterwave.com)
+        2. Complete business verification
+        3. Activate your account
+      </Step>
+
+      <Step title="Get API credentials">
+        1. Navigate to **Settings** → **API Keys**
+        2. Copy your **Public key** and **Secret key**
+        3. Use test keys for development
+      </Step>
+
+      <Step title="Configure environment variables">
+        Add to `.env.local`:
+
+        ```bash
+        FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST-xxxxxxxxxxxxx
+        NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=FLWPUBK_TEST-xxxxxxxxxxxxx
+        ```
+      </Step>
+
+      <Step title="Set up webhooks">
+        1. In Flutterwave Dashboard, go to **Settings** → **Webhooks**
+        2. Set URL to `https://yourdomain.com/api/webhooks/flutterwave`
+        3. Copy the webhook secret hash
+        4. Add to `.env.local`: `FLUTTERWAVE_WEBHOOK_SECRET=xxxxx`
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Deploy to production
+
+When you're ready to deploy your EaseLMS instance:
+
+<Steps>
+  <Step title="Build the application">
+    ```bash
+    npm run build
+    ```
+
+    This creates optimized production builds for both apps.
+  </Step>
+
+  <Step title="Choose a hosting platform">
+    Deploy to your preferred platform:
+
+    <CardGroup cols={3}>
+      <Card title="Vercel" icon="triangle">
+        Easy deployment with zero config
+      </Card>
+      <Card title="AWS" icon="aws">
+        Full control with EC2, ECS, or Amplify
+      </Card>
+      <Card title="DigitalOcean" icon="digital-ocean">
+        Simple droplet or App Platform
+      </Card>
+    </CardGroup>
+  </Step>
+
+  <Step title="Set production environment variables">
+    Configure all environment variables in your hosting platform:
+    - Use production Supabase credentials
+    - Use live Stripe/Flutterwave keys
+    - Set production AWS S3 bucket
+    - Update `NEXT_PUBLIC_APP_URL` to your domain
+  </Step>
+
+  <Step title="Configure custom domain">
+    1. Add your custom domain to your hosting platform
+    2. Configure DNS records as instructed
+    3. Enable SSL/HTTPS (usually automatic)
+    4. Update platform branding settings with new domain
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Database connection errors">
+    **Error:** "Could not connect to Supabase"
+
+    **Solutions:**
+    - Verify your `NEXT_PUBLIC_SUPABASE_URL` is correct
+    - Check that your `NEXT_PUBLIC_SUPABASE_ANON_KEY` is valid
+    - Ensure your Supabase project is active (not paused)
+    - Check Supabase service status at [status.supabase.com](https://status.supabase.com)
+  </Accordion>
+
+  <Accordion title="Migration fails">
+    **Error:** Migration errors when running `database_setup.sql`
+
+    **Solutions:**
+    - Ensure you're running the migration in a fresh database
+    - Check for syntax errors if you modified the migration
+    - Run each section separately to identify the failing part
+    - Check Supabase logs for detailed error messages
+  </Accordion>
+
+  <Accordion title="File upload issues">
+    **Error:** "Failed to upload file"
+
+    **Solutions:**
+    - Verify AWS credentials are correct
+    - Check S3 bucket permissions allow uploads
+    - Ensure CORS is configured on your S3 bucket
+    - For development, uploads will fall back to Supabase Storage if AWS is not configured
+  </Accordion>
+
+  <Accordion title="Email notifications not sending">
+    **Error:** Emails not being delivered
+
+    **Solutions:**
+    - Verify SendGrid API key is valid
+    - Check sender email is verified in SendGrid
+    - Review SendGrid activity logs for failures
+    - Check spam folder for test emails
+    - Ensure `SENDGRID_FROM_EMAIL` matches verified sender
+  </Accordion>
+
+  <Accordion title="Payment processing errors">
+    **Error:** Payment redirects fail
+
+    **Solutions:**
+    - Verify Stripe/Flutterwave API keys are correct
+    - Use test mode keys for development
+    - Check webhook endpoints are accessible
+    - Review payment gateway dashboard for errors
+    - Ensure `NEXT_PUBLIC_APP_URL` is set correctly for redirects
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Create your first course" icon="book">
+    Log in as admin and start building your course content
+  </Card>
+  <Card title="Customize branding" icon="palette">
+    Upload your logo and configure platform settings
+  </Card>
+  <Card title="Invite instructors" icon="users">
+    Add instructors to help create and manage courses
+  </Card>
+  <Card title="Deploy to production" icon="rocket">
+    Launch your LMS and start enrolling students
+  </Card>
+</CardGroup>
+
+## Get help
+
+Need assistance with installation or configuration?
+
+<CardGroup cols={2}>
+  <Card title="Email support" icon="envelope" href="mailto:contact@easelms.org">
+    Contact us for technical support
+  </Card>
+  <Card title="GitHub issues" icon="github" href="https://github.com/enyojoo/easelms/issues">
+    Report bugs or request features
+  </Card>
+  <Card title="Documentation" icon="book-open" href="/introduction">
+    Read the full documentation
+  </Card>
+  <Card title="Hosted service" icon="cloud" href="https://www.easelms.org/hosted">
+    Skip setup with managed hosting
+  </Card>
+</CardGroup>

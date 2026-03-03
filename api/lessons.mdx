@@ -1,0 +1,246 @@
+---
+title: Lesson API
+description: API endpoints for accessing lesson content, quizzes, and resources
+---
+
+## Get Lesson Details
+
+<api method="GET" endpoint="/api/lessons/{id}" />
+
+Retrieves detailed information about a specific lesson including content, quizzes, and resources. Requires enrollment in the parent course.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Lesson ID
+</ParamField>
+
+### Response
+
+<ResponseField name="lesson" type="object">
+  Detailed lesson object
+  <Expandable title="Lesson Object">
+    <ResponseField name="id" type="number">
+      Unique lesson identifier
+    </ResponseField>
+    <ResponseField name="title" type="string">
+      Lesson title
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Lesson type: "video", "text", or "quiz"
+    </ResponseField>
+    <ResponseField name="video_url" type="string">
+      Video URL for video lessons (stored in dedicated column)
+    </ResponseField>
+    <ResponseField name="text_content" type="string">
+      HTML or text content for text lessons
+    </ResponseField>
+    <ResponseField name="estimated_duration" type="number">
+      Estimated duration in minutes
+    </ResponseField>
+    <ResponseField name="is_required" type="boolean">
+      Whether this lesson is required for course completion
+    </ResponseField>
+    <ResponseField name="order_index" type="number">
+      Position of the lesson in the course
+    </ResponseField>
+    <ResponseField name="course_id" type="number">
+      Parent course ID
+    </ResponseField>
+    <ResponseField name="resources" type="array">
+      Array of downloadable resource objects
+    </ResponseField>
+    <ResponseField name="quiz_questions" type="array">
+      Array of quiz question objects from the quiz_questions table
+    </ResponseField>
+    <ResponseField name="courses" type="object">
+      Parent course basic information (id, title, settings)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/lessons/42
+```
+
+### Example Response
+
+```json
+{
+  "lesson": {
+    "id": 42,
+    "title": "Introduction to Variables",
+    "type": "video",
+    "video_url": "https://example.com/video.mp4",
+    "text_content": null,
+    "estimated_duration": 15,
+    "is_required": true,
+    "order_index": 0,
+    "course_id": 1,
+    "resources": [
+      {
+        "id": "1",
+        "title": "Lesson Notes",
+        "type": "pdf",
+        "url": "https://example.com/notes.pdf",
+        "file_size": 1024000
+      }
+    ],
+    "quiz_questions": [
+      {
+        "id": "10",
+        "question_type": "multiple-choice",
+        "question_text": "What is a variable?",
+        "question_data": {
+          "options": ["A container for data", "A function", "A loop"],
+          "correctOption": 0
+        },
+        "points": 1,
+        "order_index": 0
+      }
+    ],
+    "courses": {
+      "id": 1,
+      "title": "Introduction to Programming",
+      "settings": {
+        "requiresSequentialProgress": false
+      }
+    }
+  }
+}
+```
+
+---
+
+## Lesson Access Control
+
+Access to lesson content is controlled by enrollment status:
+
+- **Regular Users**: Must be enrolled in the course to access any lesson
+- **Admin/Instructor**: Can access all lessons without enrollment
+
+The API automatically checks enrollment status and returns a 403 Forbidden error if the user is not enrolled.
+
+---
+
+## Lesson Content Types
+
+Lessons support three main content types:
+
+### Video Lessons
+
+Video lessons have a `video_url` field pointing to the video file. The URL may be transformed to use Azure Front Door CDN if enabled.
+
+```json
+{
+  "type": "video",
+  "video_url": "https://cdn.example.com/videos/lesson-42.mp4",
+  "estimated_duration": 15
+}
+```
+
+### Text Lessons
+
+Text lessons contain HTML or markdown content in the `text_content` field.
+
+```json
+{
+  "type": "text",
+  "text_content": "<h1>Introduction</h1><p>Welcome to this lesson...</p>",
+  "estimated_duration": 10
+}
+```
+
+### Quiz Lessons
+
+Quiz lessons contain questions from the normalized `quiz_questions` table. Questions support multiple types:
+
+- **multiple-choice**: Single correct answer from options
+- **true-false**: Boolean answer
+- **fill-blank**: Text input with correct answers
+- **short-answer**: Keyword-based evaluation
+- **essay**: Free-form text (manual grading)
+- **matching**: Match items from two lists
+
+---
+
+## Quiz Question Structure
+
+Quiz questions are stored in the `quiz_questions` table with the following structure:
+
+<ParamField name="id" type="number">
+  Unique question identifier
+</ParamField>
+
+<ParamField name="lesson_id" type="number">
+  Parent lesson ID
+</ParamField>
+
+<ParamField name="question_type" type="string">
+  Question type: "multiple-choice", "true-false", "fill-blank", "short-answer", "essay", "matching"
+</ParamField>
+
+<ParamField name="question_text" type="string">
+  The question text
+</ParamField>
+
+<ParamField name="question_data" type="object">
+  Type-specific data (options, correct answers, etc.)
+</ParamField>
+
+<ParamField name="points" type="number">
+  Points awarded for correct answer (default: 1)
+</ParamField>
+
+<ParamField name="explanation" type="string">
+  Explanation shown after answering
+</ParamField>
+
+<ParamField name="difficulty" type="string">
+  Difficulty level: "easy", "medium", "hard"
+</ParamField>
+
+<ParamField name="time_limit" type="number">
+  Time limit in seconds (optional)
+</ParamField>
+
+<ParamField name="image_url" type="string">
+  Optional image for the question
+</ParamField>
+
+<ParamField name="order_index" type="number">
+  Question order in the quiz
+</ParamField>
+
+---
+
+## Resources
+
+Lessons can include downloadable resources linked through the `lesson_resources` junction table:
+
+```json
+{
+  "id": "1",
+  "title": "Lesson Notes",
+  "description": "Detailed notes for this lesson",
+  "type": "pdf",
+  "url": "https://s3.amazonaws.com/bucket/notes.pdf",
+  "file_size": 1024000,
+  "mime_type": "application/pdf",
+  "download_count": 42
+}
+```
+
+---
+
+## Error Codes
+
+| Status Code | Description |
+|------------|-------------|
+| 200 | Success |
+| 401 | Unauthorized - Authentication required |
+| 403 | Forbidden - Not enrolled in course |
+| 404 | Not Found - Lesson not found |
+| 500 | Internal Server Error |

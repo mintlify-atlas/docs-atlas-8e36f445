@@ -1,0 +1,235 @@
+---
+title: Enrollment API
+description: API endpoints for managing course enrollments and checking enrollment status
+---
+
+## List Enrollments
+
+<api method="GET" endpoint="/api/enrollments" />
+
+Retrieves all enrollments for the authenticated user.
+
+### Response
+
+<ResponseField name="enrollments" type="array">
+  Array of enrollment objects
+  <Expandable title="Enrollment Object">
+    <ResponseField name="id" type="number">
+      Unique enrollment identifier
+    </ResponseField>
+    <ResponseField name="user_id" type="string">
+      User UUID
+    </ResponseField>
+    <ResponseField name="course_id" type="number">
+      Course ID
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Enrollment status: "active", "completed", "suspended"
+    </ResponseField>
+    <ResponseField name="progress" type="number">
+      Completion progress (0-100)
+    </ResponseField>
+    <ResponseField name="enrolled_at" type="string">
+      Enrollment timestamp (ISO 8601)
+    </ResponseField>
+    <ResponseField name="completed_at" type="string">
+      Completion timestamp (ISO 8601, null if not completed)
+    </ResponseField>
+    <ResponseField name="courses" type="object">
+      Embedded course object with course details
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/enrollments
+```
+
+### Example Response
+
+```json
+{
+  "enrollments": [
+    {
+      "id": 1,
+      "user_id": "uuid-here",
+      "course_id": 42,
+      "status": "active",
+      "progress": 65,
+      "enrolled_at": "2024-01-15T10:30:00Z",
+      "completed_at": null,
+      "courses": {
+        "id": 42,
+        "title": "Introduction to Programming",
+        "image": "https://example.com/image.jpg"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Create Enrollment
+
+<api method="POST" endpoint="/api/enrollments" />
+
+Enrolls a user in a course. Checks prerequisites and updates enrollment count.
+
+### Request Body
+
+<ParamField body="courseId" type="number" required>
+  Course ID to enroll in
+</ParamField>
+
+<ParamField body="userId" type="string">
+  Admin only: Enroll another user by their UUID
+</ParamField>
+
+<ParamField body="bypassPrerequisites" type="boolean">
+  Admin only: Skip prerequisite checks (default: false)
+</ParamField>
+
+### Response
+
+<ResponseField name="enrollment" type="object">
+  Created enrollment object
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/enrollments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "courseId": 42
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "enrollment": {
+    "id": 1,
+    "user_id": "uuid-here",
+    "course_id": 42,
+    "status": "active",
+    "progress": 0,
+    "enrolled_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+---
+
+## Update Enrollment Status
+
+<api method="PATCH" endpoint="/api/enrollments" />
+
+Updates the status of an enrollment (e.g., mark as completed).
+
+### Request Body
+
+<ParamField body="courseId" type="number" required>
+  Course ID
+</ParamField>
+
+<ParamField body="status" type="string" required>
+  New status: "active", "completed", "suspended"
+</ParamField>
+
+### Response
+
+<ResponseField name="enrollment" type="object">
+  Updated enrollment object
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X PATCH https://your-domain.com/api/enrollments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "courseId": 42,
+    "status": "completed"
+  }'
+```
+
+### Notes
+
+- Setting status to "completed" automatically sets `completed_at` timestamp and progress to 100%
+- Triggers email notifications for course completion
+- Sends admin notification about the completion
+
+---
+
+## Prerequisite Validation
+
+When enrolling in a course with prerequisites, the API validates:
+
+1. All prerequisite courses must be completed
+2. Completion is verified by `completed_at` timestamp being set
+3. In-progress enrollments are not sufficient
+
+### Prerequisite Error Response
+
+```json
+{
+  "error": "Prerequisites not met",
+  "missingPrerequisites": [
+    {
+      "id": 10,
+      "title": "Introduction to Programming",
+      "status": "not_started"
+    },
+    {
+      "id": 15,
+      "title": "Basic JavaScript",
+      "status": "in_progress"
+    }
+  ]
+}
+```
+
+---
+
+## Enrollment Notifications
+
+The API automatically triggers email notifications:
+
+- **On Enrollment**: Welcome email with course access details
+- **On Completion**: Congratulations email with certificate link (if enabled)
+- **Admin Notification**: Notifies admin when a user completes a course
+
+---
+
+## Admin Enrollment
+
+Admins can enroll other users by providing the `userId` parameter:
+
+```bash
+curl -X POST https://your-domain.com/api/enrollments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "courseId": 42,
+    "userId": "target-user-uuid",
+    "bypassPrerequisites": true
+  }'
+```
+
+---
+
+## Error Codes
+
+| Status Code | Description |
+|------------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Prerequisites not met or invalid parameters |
+| 401 | Unauthorized - Authentication required |
+| 403 | Forbidden - Admin access required |
+| 404 | Not Found - Enrollment or course not found |
+| 409 | Conflict - User already enrolled |
+| 500 | Internal Server Error |

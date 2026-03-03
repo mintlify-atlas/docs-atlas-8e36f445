@@ -1,0 +1,354 @@
+---
+title: Authentication
+description: Learn how to authenticate with the EaseLMS API using Supabase authentication tokens
+---
+
+## Overview
+
+EaseLMS uses Supabase authentication for API security. Most API endpoints require a valid Supabase authentication token in the request headers.
+
+## Authentication Flow
+
+The API uses session-based authentication with Supabase:
+
+1. User logs in via the `/api/auth/login` endpoint
+2. Supabase creates a session and returns access tokens
+3. Subsequent API requests include the session cookie
+4. Middleware validates the session on protected routes
+
+## User Types
+
+EaseLMS supports three user types:
+
+- **`user`** - Learners who can enroll in and take courses
+- **`instructor`** - Instructors who can create and manage courses
+- **`admin`** - Administrators with full system access
+
+## Login
+
+### Endpoint
+
+```
+POST /api/auth/login
+```
+
+### Request Body
+
+<ParamField path="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  User's password
+</ParamField>
+
+<ParamField path="userType" type="string" required>
+  Type of user attempting to login: `user`, `instructor`, or `admin`
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "learner@example.com",
+    "password": "secure_password",
+    "userType": "user"
+  }'
+```
+
+### Success Response
+
+<ResponseField name="user" type="object">
+  The authenticated user object from Supabase
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      User's unique identifier (UUID)
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      User's email address
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      Timestamp when user was created
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="session" type="object">
+  The Supabase session object containing authentication tokens
+  
+  <Expandable title="properties">
+    <ResponseField name="access_token" type="string">
+      JWT access token for API requests
+    </ResponseField>
+    
+    <ResponseField name="refresh_token" type="string">
+      Token used to refresh the access token
+    </ResponseField>
+    
+    <ResponseField name="expires_at" type="number">
+      Unix timestamp when the session expires
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Success Response
+
+```json
+{
+  "user": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "email": "learner@example.com",
+    "created_at": "2024-01-15T10:30:00Z"
+  },
+  "session": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "v1.refresh_token_here...",
+    "expires_at": 1705328400
+  }
+}
+```
+
+### Error Responses
+
+#### Invalid Credentials
+
+```json
+{
+  "error": "Invalid login credentials"
+}
+```
+
+Status: `401 Unauthorized`
+
+#### Wrong User Type
+
+If a learner tries to login through the admin portal:
+
+```json
+{
+  "error": "Learner accounts cannot login through admin portal. Please use the learner login page."
+}
+```
+
+Status: `403 Forbidden`
+
+If an admin tries to login through the learner portal:
+
+```json
+{
+  "error": "Admin accounts cannot login through learner portal. Please use the admin login page."
+}
+```
+
+Status: `403 Forbidden`
+
+<Note>
+Instructors can login through the admin portal and will be granted access.
+</Note>
+
+## Making Authenticated Requests
+
+### Using Session Cookies
+
+After successful login, Supabase automatically sets session cookies. Include these cookies in subsequent requests:
+
+```bash
+curl -X GET https://your-domain.com/api/enrollments \
+  -H "Cookie: sb-access-token=...; sb-refresh-token=..." \
+  -H "Content-Type: application/json"
+```
+
+### Using Authorization Header
+
+Alternatively, you can use the access token in the Authorization header:
+
+```bash
+curl -X GET https://your-domain.com/api/enrollments \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json"
+```
+
+## Checking Authentication Status
+
+Protected endpoints will return `401 Unauthorized` if the session is invalid or expired:
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+## User Permissions
+
+Different endpoints require different permission levels:
+
+### Public Endpoints
+
+These endpoints don't require authentication:
+
+- `GET /api/courses` (published courses only)
+- `GET /api/courses/[id]` (published courses only)
+
+### Authenticated User Endpoints
+
+These endpoints require any authenticated user:
+
+- `GET /api/enrollments` (returns user's own enrollments)
+- `POST /api/enrollments` (self-enrollment)
+- `GET /api/progress`
+- `POST /api/progress`
+- `GET /api/profile`
+
+### Admin/Instructor Endpoints
+
+These endpoints require admin or instructor privileges:
+
+- `POST /api/courses` (admin only)
+- `GET /api/courses?all=true` (all courses including drafts)
+- `GET /api/users` (admin only)
+- `POST /api/users` (admin only)
+- `GET /api/admin/stats` (admin only)
+
+### Permission Denied Response
+
+If a user lacks required permissions:
+
+```json
+{
+  "error": "Forbidden"
+}
+```
+
+Status: `403 Forbidden`
+
+## Signup
+
+### Endpoint
+
+```
+POST /api/auth/signup
+```
+
+### Request Body
+
+<ParamField path="email" type="string" required>
+  New user's email address
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  New user's password
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  New user's full name
+</ParamField>
+
+<ParamField path="userType" type="string" required>
+  Type of user account: `user`, `instructor`, or `admin`
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "newlearner@example.com",
+    "password": "secure_password123",
+    "name": "John Doe",
+    "userType": "user"
+  }'
+```
+
+## Logout
+
+### Endpoint
+
+```
+POST /api/auth/logout
+```
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/auth/logout \
+  -H "Cookie: sb-access-token=...; sb-refresh-token=..."
+```
+
+## Password Reset
+
+### Request Password Reset
+
+```
+POST /api/auth/reset-password
+```
+
+### Change Password
+
+```
+POST /api/auth/change-password
+```
+
+## Row Level Security (RLS)
+
+EaseLMS uses Supabase Row Level Security to protect data at the database level. The API includes two types of Supabase clients:
+
+### Regular Client
+
+Used for user-scoped operations. RLS policies apply:
+
+- Users can only access their own enrollments
+- Users can only update their own progress
+- Users can only view their own profile
+
+### Service Role Client
+
+Used for admin operations and bypasses RLS:
+
+- Admin user management
+- Cross-user enrollment operations
+- System-wide statistics
+
+<Warning>
+The service role key should never be exposed to the client. It's only used server-side in API routes.
+</Warning>
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always use HTTPS in production">
+    Never send authentication credentials over unencrypted HTTP connections.
+  </Accordion>
+  
+  <Accordion title="Store tokens securely">
+    If storing tokens on the client, use secure, httpOnly cookies or secure storage mechanisms.
+  </Accordion>
+  
+  <Accordion title="Validate user types">
+    The API validates user types on login to prevent unauthorized access to admin/instructor features.
+  </Accordion>
+  
+  <Accordion title="Handle token expiration">
+    Implement token refresh logic to handle expired sessions gracefully.
+  </Accordion>
+  
+  <Accordion title="Never expose service role keys">
+    Keep `SUPABASE_SERVICE_ROLE_KEY` private and only use it server-side.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Overview" icon="book" href="/api/overview">
+    Learn about API structure and response formats
+  </Card>
+  <Card title="Courses Endpoints" icon="graduation-cap" href="/api/courses">
+    Start working with the Courses API
+  </Card>
+</CardGroup>

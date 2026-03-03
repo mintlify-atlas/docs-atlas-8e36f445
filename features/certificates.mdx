@@ -1,0 +1,393 @@
+---
+title: Certificates
+description: Generate and customize professional certificates for course completion
+---
+
+Reward learner achievements with beautiful, customizable certificates that are automatically generated upon course completion.
+
+## Overview
+
+EaseLMS includes a powerful certificate generation system that creates professional PDF certificates with:
+
+- **Automatic generation** - Certificates created when learners complete courses
+- **Custom templates** - Upload your own certificate backgrounds
+- **Digital signatures** - Add instructor or organization signatures
+- **Unique certificate numbers** - Each certificate has a unique ID for verification
+- **PDF download** - Learners can download and share certificates
+- **Email delivery** - Automatic notifications when certificates are ready
+
+## Enabling certificates
+
+Configure certificates when creating or editing a course:
+
+<Steps>
+  <Step title="Navigate to course settings">
+    Go to **Admin → Courses** and select a course, or create a new course.
+  </Step>
+  
+  <Step title="Open certificate settings">
+    In the course builder, find the **Certificate Settings** section.
+  </Step>
+  
+  <Step title="Enable certificates">
+    Toggle "Enable Certificate" to activate certificate generation for this course.
+  </Step>
+  
+  <Step title="Configure certificate options">
+    Customize your certificate appearance, text, and signature (detailed below).
+  </Step>
+</Steps>
+
+<Info>
+  Certificates are course-specific. Enable and configure them individually for each course that should award certificates.
+</Info>
+
+## Certificate types
+
+Choose the certificate type that best matches your course:
+
+<CardGroup cols={3}>
+  <Card title="Completion" icon="graduation-cap">
+    "Certificate of Completion"
+    
+    Text: "has successfully completed"
+    
+    Best for courses focused on finishing content.
+  </Card>
+  
+  <Card title="Participation" icon="users">
+    "Certificate of Participation"
+    
+    Text: "has successfully participated in"
+    
+    Best for workshops or events.
+  </Card>
+  
+  <Card title="Achievement" icon="trophy">
+    "Certificate of Achievement"
+    
+    Text: "has successfully achieved"
+    
+    Best for courses with assessments.
+  </Card>
+</CardGroup>
+
+### Custom certificate title
+
+Create your own certificate title:
+
+1. Select **"Custom Title (Optional)"** from certificate type options
+2. Enter your custom title (e.g., "Certificate of Excellence", "Professional Development Certificate")
+3. The custom title replaces the default type on the certificate
+
+<Tip>
+  Custom titles give you complete flexibility to match your organization's terminology and branding.
+</Tip>
+
+## Certificate customization
+
+### Certificate description
+
+Write a custom description that appears on the certificate:
+
+- **Character limit**: 150 characters maximum
+- **Placeholders**: Use `[Student Name]` and `[Course Name]`
+- **Formatting**: Placeholders render in **bold** for emphasis
+
+**Example descriptions:**
+
+```
+This certifies that [Student Name] has completed the [Course Name].
+```
+
+```
+[Student Name] has demonstrated excellence in completing [Course Name].
+```
+
+```
+Awarded to [Student Name] for successful participation in [Course Name].
+```
+
+<Note>
+  Placeholders count toward the 150-character limit. Keep descriptions concise and impactful.
+</Note>
+
+### Certificate template
+
+Upload a custom background image for your certificates:
+
+**Requirements:**
+- **Format**: PNG, JPEG, or PDF
+- **Orientation**: Landscape (recommended)
+- **Size**: Maximum 5MB
+- **Dimensions**: A4 landscape ratio (842px × 595px or 1684px × 1190px)
+
+**Best practices:**
+- Use high-resolution images (300 DPI for print quality)
+- Ensure text areas are clear and uncluttered
+- Light backgrounds work best for readability
+- Include your organization's branding elements
+
+<Steps>
+  <Step title="Design your template">
+    Create a landscape certificate background in your design tool (Canva, Photoshop, etc.).
+  </Step>
+  
+  <Step title="Upload the template">
+    Click the upload area in Certificate Settings and select your file.
+  </Step>
+  
+  <Step title="Preview the result">
+    The template preview appears immediately. Check that it looks correct.
+  </Step>
+</Steps>
+
+<Info>
+  If no template is uploaded, EaseLMS uses a clean default certificate design with your platform branding.
+</Info>
+
+### Digital signature
+
+Add an authentic signature to certificates:
+
+**Signature image:**
+- **Format**: PNG or JPEG
+- **Size**: Maximum 1MB
+- **Recommendation**: Use transparent PNG for best results
+- **Placement**: Bottom of certificate
+
+**Signature details:**
+- **Name of signer** - The person's name (e.g., "Jane Smith")
+- **Title of signer** - Their position (e.g., "Course Instructor", "Director of Education")
+
+These details appear below the signature on the certificate.
+
+### Additional text
+
+Add optional supplementary text to certificates:
+
+- **Character limit**: 150 characters maximum
+- **Placement**: Below the main description
+- **Use cases**: Accreditation info, continuing education credits, terms
+
+**Example:**
+
+```
+Accredited by the Professional Development Board. Valid for 2 years.
+```
+
+## Certificate generation
+
+Certificates are generated automatically when learners meet completion criteria.
+
+### Completion criteria
+
+A certificate is generated when:
+
+1. **Course has certificates enabled** in settings
+2. **Learner completes 100% of lessons** in the course
+3. **All lessons marked complete** including videos, documents, and quizzes
+
+### Generation process
+
+<Steps>
+  <Step title="Learner completes final lesson">
+    When the last lesson is marked complete, the system detects 100% progress.
+  </Step>
+  
+  <Step title="Certificate generated">
+    EaseLMS automatically generates a PDF certificate with:
+    - Learner's full name
+    - Course title
+    - Completion date
+    - Unique certificate number
+    - Configured customizations
+  </Step>
+  
+  <Step title="Email notification sent">
+    Learner receives an email with:
+    - Congratulations message
+    - Certificate download link
+    - Certificate number for reference
+  </Step>
+  
+  <Step title="Available in dashboard">
+    Certificate appears in the learner's dashboard under completed courses.
+  </Step>
+</Steps>
+
+### Unique certificate numbers
+
+Every certificate includes a unique identifier:
+
+- **Format**: `CERT-{timestamp}-{random}`
+- **Example**: `CERT-1678901234-A3F7K9`
+- **Purpose**: Verification and authenticity
+- **Location**: Bottom of certificate
+
+<Tip>
+  Certificate numbers can be used to verify authenticity if learners share certificates with employers or institutions.
+</Tip>
+
+## Certificate delivery
+
+### Email notifications
+
+Learners receive a professional email when their certificate is ready:
+
+**Email includes:**
+- Congratulations message
+- Course name and completion date
+- Direct download link to PDF certificate
+- Certificate number
+- Link to dashboard
+
+### Accessing certificates
+
+Learners can access certificates multiple ways:
+
+1. **Email link** - Click download link in notification email
+2. **Dashboard** - View all certificates in the learner dashboard
+3. **Course page** - Download from completed course details
+
+### PDF format
+
+Certificates are delivered as high-quality PDF files:
+
+- **Standard**: A4 landscape (842pt × 595pt)
+- **Quality**: Print-ready resolution
+- **File size**: Optimized for web and email
+- **Compatibility**: Opens in any PDF reader
+
+## Certificate design
+
+EaseLMS renders certificates with a professional layout:
+
+### Default certificate design
+
+When no custom template is uploaded:
+
+- Clean, professional appearance
+- Platform logo (if configured)
+- Certificate type/title prominently displayed
+- Learner name in large, bold text
+- Course name clearly visible
+- Description with formatted placeholders
+- Signature with name and title
+- Issue date and certificate number
+- Additional text (if provided)
+
+### Custom template design
+
+When a template is uploaded:
+
+- Your background image fills the entire certificate
+- Text and elements overlay the template
+- Maintains readability with proper contrast
+- Logo, signature, and text positioned automatically
+
+### Font and styling
+
+Certificates use the **Poppins** font family:
+
+- **Regular** - Body text and descriptions
+- **Bold** - Names, titles, and placeholders
+- **Sizing** - Responsive to content length
+
+<Note>
+  The certificate renderer automatically adjusts text size to prevent overflow while maintaining readability.
+</Note>
+
+## Managing certificates
+
+### Viewing issued certificates
+
+Admins can view all issued certificates:
+
+1. Navigate to **Admin → Certificates**
+2. See list of all generated certificates
+3. Filter by course, learner, or date
+4. Download certificate PDFs
+5. View certificate details and metadata
+
+### Re-generating certificates
+
+If you update certificate settings:
+
+- Existing certificates are **not** automatically updated
+- New completions use the updated settings
+- Manually re-generate certificates if needed
+
+### Certificate storage
+
+Certificates are stored securely:
+
+- **Database records** - Certificate metadata and references
+- **File storage** - PDF files stored in AWS S3
+- **Access control** - Only certificate owners can download
+- **Backup** - Included in regular platform backups
+
+## Best practices
+
+### Template design
+
+- **Keep it simple** - Avoid cluttered backgrounds
+- **Maintain contrast** - Ensure text is readable over the background
+- **Use landscape** - Matches standard certificate format
+- **Brand consistently** - Use your organization's colors and logo
+- **Test printing** - Verify templates look good printed
+
+### Certificate text
+
+- **Be concise** - Keep descriptions short and impactful
+- **Use placeholders** - `[Student Name]` and `[Course Name]` personalize certificates
+- **Proofread carefully** - Errors on certificates are permanent
+- **Stay professional** - Maintain formal, achievement-focused language
+
+### Signatures
+
+- **Use real signatures** - Scan or digitally sign for authenticity
+- **Transparent backgrounds** - PNG files look best
+- **Appropriate size** - Not too large or small
+- **Include credentials** - Add titles and credentials to increase value
+
+### Course completion
+
+- **Clear requirements** - Tell learners what they need to complete
+- **Achievable goals** - Make sure courses can be reasonably completed
+- **Value-driven** - Ensure certificates represent real achievement
+- **Promote certificates** - Mention certificates in course descriptions
+
+<Tip>
+  Highlight certificate availability in course descriptions to increase enrollment and completion rates.
+</Tip>
+
+## Troubleshooting
+
+### Certificate not generating
+
+**Check:**
+- Certificates are enabled in course settings
+- Learner has completed 100% of lessons
+- All lessons are marked complete in the database
+- No errors in server logs
+
+### Image not appearing
+
+**Check:**
+- Image URL is accessible (not blocked)
+- Image format is supported (PNG, JPEG)
+- File size is within limits
+- Image is not SVG (PDFKit doesn't support SVG)
+
+### Text overflow
+
+**Solution:**
+- Shorten certificate description
+- Reduce additional text length
+- Use concise course titles
+- Check character limits (150 characters)
+
+<Info>
+  The certificate renderer includes overflow protection, but very long text may be truncated. Stay within character limits for best results.
+</Info>

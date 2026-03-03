@@ -1,0 +1,352 @@
+---
+title: Environment Variables
+description: Complete reference for all environment variables used in EaseLMS
+---
+
+EaseLMS uses environment variables to configure various services and integrations. This guide provides a complete reference for all available variables.
+
+## Setup Instructions
+
+Create a `.env.local` file in the `apps/lms/` directory of your project:
+
+```bash
+cd apps/lms
+touch .env.local
+```
+
+<Note>
+  Never commit `.env.local` to version control. It's already included in `.gitignore`.
+</Note>
+
+## Required Variables
+
+These variables are essential for EaseLMS to function:
+
+### Supabase Configuration
+
+```env
+# Supabase Project URL
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+
+# Supabase Anonymous Key (safe to expose in client)
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Supabase Service Role Key (keep secret!)
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+<Steps>
+  <Step title="Get Supabase credentials">
+    1. Go to your Supabase project dashboard
+    2. Navigate to **Settings → API**
+    3. Copy the Project URL and API keys
+  </Step>
+
+  <Step title="Add to .env.local">
+    Paste the values into your `.env.local` file
+  </Step>
+</Steps>
+
+<Warning>
+  The `SUPABASE_SERVICE_ROLE_KEY` has full database access. Never expose it in client-side code or commit it to version control.
+</Warning>
+
+### Application URL
+
+```env
+# The URL where your application is accessible
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+For production, change this to your actual domain:
+
+```env
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+```
+
+## Optional Variables
+
+These variables enable additional features:
+
+### AWS S3 Storage
+
+Required for uploading course videos, images, and resources.
+
+```env
+# AWS Region
+AWS_REGION=us-east-1
+
+# AWS Access Credentials
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+
+# S3 Bucket Name
+AWS_S3_BUCKET_NAME=your_bucket_name
+
+# CloudFront Domain (optional, for CDN)
+AWS_CLOUDFRONT_DOMAIN=your_cloudfront_domain
+```
+
+<Note>
+  While optional for development, AWS S3 is highly recommended for production to handle file uploads and video streaming.
+</Note>
+
+### Payment Gateways
+
+Enable course payments through Stripe and Flutterwave.
+
+#### Stripe
+
+```env
+# Stripe Secret Key (server-side)
+STRIPE_SECRET_KEY=sk_test_...
+
+# Stripe Publishable Key (client-side)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+<Steps>
+  <Step title="Get Stripe keys">
+    1. Sign up at [stripe.com](https://stripe.com)
+    2. Go to **Developers → API keys**
+    3. Copy both the secret and publishable keys
+  </Step>
+
+  <Step title="Use test keys for development">
+    Use keys starting with `sk_test_` and `pk_test_` for development. Switch to live keys (`sk_live_` and `pk_live_`) for production.
+  </Step>
+</Steps>
+
+#### Flutterwave
+
+Popular for African markets with multi-currency support.
+
+```env
+# Flutterwave Secret Key (server-side)
+FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
+
+# Flutterwave Public Key (client-side)
+NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=your_flutterwave_public_key
+```
+
+### Currency Exchange Rates
+
+Enable automatic currency conversion using exchangerate-api.com.
+
+```env
+EXCHANGERATE_API_KEY=your_exchangerate_api_key
+```
+
+<Note>
+  Get a free API key at [exchangerate-api.com](https://www.exchangerate-api.com). The free tier provides 1,500 requests per month.
+</Note>
+
+### Email Notifications (SendGrid)
+
+Enable automated email notifications for users and admins.
+
+```env
+# SendGrid API Key
+SENDGRID_API_KEY=your_sendgrid_api_key
+
+# From Email Address
+SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+
+# From Name
+SENDGRID_FROM_NAME=EaseLMS
+
+# Reply-To Address
+SENDGRID_REPLY_TO=support@yourdomain.com
+```
+
+<Steps>
+  <Step title="Create SendGrid account">
+    Sign up at [sendgrid.com](https://sendgrid.com) - free tier includes 100 emails/day
+  </Step>
+
+  <Step title="Generate API key">
+    1. Go to **Settings → API Keys**
+    2. Click **Create API Key**
+    3. Give it full access to **Mail Send**
+    4. Copy the key (shown only once)
+  </Step>
+
+  <Step title="Verify sender email">
+    1. Go to **Settings → Sender Authentication**
+    2. Verify your domain or single sender email
+    3. Use the verified email as `SENDGRID_FROM_EMAIL`
+  </Step>
+</Steps>
+
+#### Email Types Sent
+
+When configured, EaseLMS automatically sends:
+
+**User Emails:**
+- Welcome email on signup
+- Course enrollment confirmation
+- Course completion notification
+- Certificate ready notification
+- Payment confirmation
+- Payment failed alert
+
+**Admin Emails:**
+- New enrollment notification
+- New payment notification
+- Course completion notification
+
+## Environment Variable Reference
+
+### Complete Example
+
+Here's a complete `.env.local` file with all variables:
+
+```env
+# ============================================
+# REQUIRED - Supabase
+# ============================================
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
+
+# ============================================
+# REQUIRED - Application
+# ============================================
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# ============================================
+# OPTIONAL - AWS S3 Storage
+# ============================================
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=wJalr...
+AWS_S3_BUCKET_NAME=easelms-uploads
+AWS_CLOUDFRONT_DOMAIN=d123456.cloudfront.net
+
+# ============================================
+# OPTIONAL - Payment Gateways
+# ============================================
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# Flutterwave
+FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST-...
+NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=FLWPUBK_TEST-...
+
+# ============================================
+# OPTIONAL - Currency Exchange
+# ============================================
+EXCHANGERATE_API_KEY=your_api_key_here
+
+# ============================================
+# OPTIONAL - Email (SendGrid)
+# ============================================
+SENDGRID_API_KEY=SG.xxx...
+SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+SENDGRID_FROM_NAME=EaseLMS
+SENDGRID_REPLY_TO=support@yourdomain.com
+```
+
+## Variable Naming Conventions
+
+### Public vs Private Variables
+
+- **`NEXT_PUBLIC_*`** - Safe to expose to the browser, accessible in client-side code
+- **No prefix** - Server-side only, never sent to the client
+
+<Warning>
+  Never prefix sensitive keys (like `SUPABASE_SERVICE_ROLE_KEY` or `STRIPE_SECRET_KEY`) with `NEXT_PUBLIC_` as this would expose them in the browser.
+</Warning>
+
+## Development vs Production
+
+### Development Setup
+
+```env
+# Use localhost
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Use test/sandbox keys for payments
+STRIPE_SECRET_KEY=sk_test_...
+FLUTTERWAVE_SECRET_KEY=FLWSECK_TEST-...
+```
+
+### Production Setup
+
+```env
+# Use your actual domain
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
+
+# Use live/production keys
+STRIPE_SECRET_KEY=sk_live_...
+FLUTTERWAVE_SECRET_KEY=FLWSECK-...
+```
+
+## Deployment Platforms
+
+Different platforms have different ways to set environment variables:
+
+### Vercel
+
+1. Go to your project settings
+2. Navigate to **Environment Variables**
+3. Add each variable with appropriate environment (Production/Preview/Development)
+4. Redeploy to apply changes
+
+### Railway
+
+1. Open your project
+2. Go to **Variables** tab
+3. Add each variable
+4. Changes apply automatically on next deployment
+
+### Docker
+
+Use an `.env` file or pass variables in `docker-compose.yml`:
+
+```yaml
+services:
+  app:
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      # ... other variables
+```
+
+## Security Best Practices
+
+1. **Never commit** `.env.local` or `.env` files to version control
+2. **Use different keys** for development and production
+3. **Rotate keys regularly**, especially after team member changes
+4. **Use secrets management** in production (AWS Secrets Manager, etc.)
+5. **Limit key permissions** to only what's needed
+6. **Monitor usage** of API keys for unusual activity
+
+## Troubleshooting
+
+### Variables not loading
+
+1. Restart the development server after changing `.env.local`
+2. Ensure the file is in the correct location: `apps/lms/.env.local`
+3. Check for syntax errors (no spaces around `=`)
+
+### Public variables undefined in browser
+
+Make sure they start with `NEXT_PUBLIC_` and restart the dev server.
+
+### AWS/Stripe/SendGrid not working
+
+Verify:
+1. Keys are correct and not expired
+2. Services are enabled in their respective dashboards
+3. For Stripe: webhook endpoints are configured
+4. For SendGrid: sender email is verified
+
+## Next Steps
+
+After configuring your environment variables:
+
+1. [Set up your database](/guides/database-setup)
+2. [Deploy to production](/guides/deployment)
+3. [Customize your platform](/guides/customization)

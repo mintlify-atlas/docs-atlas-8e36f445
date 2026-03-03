@@ -1,0 +1,317 @@
+---
+title: User/Profile API
+description: API endpoints for managing user profiles and account settings
+---
+
+## Get Profile
+
+<api method="GET" endpoint="/api/profile" />
+
+Retrieves the authenticated user's profile. Automatically creates a profile if one doesn't exist.
+
+### Response
+
+<ResponseField name="profile" type="object">
+  User profile object
+  <Expandable title="Profile Object">
+    <ResponseField name="id" type="string">
+      User UUID
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      User email address
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      User display name
+    </ResponseField>
+    <ResponseField name="user_type" type="string">
+      User role: "user" (learner), "instructor", or "admin"
+    </ResponseField>
+    <ResponseField name="bio" type="string">
+      User biography/description
+    </ResponseField>
+    <ResponseField name="profile_image" type="string">
+      Profile image URL
+    </ResponseField>
+    <ResponseField name="currency" type="string">
+      Preferred currency (ISO 4217 code, e.g., "USD", "NGN")
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      Profile creation timestamp (ISO 8601)
+    </ResponseField>
+    <ResponseField name="updated_at" type="string">
+      Last update timestamp (ISO 8601)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/profile
+```
+
+### Example Response
+
+```json
+{
+  "profile": {
+    "id": "uuid-here",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "user_type": "user",
+    "bio": "Aspiring developer",
+    "profile_image": "https://example.com/avatar.jpg",
+    "currency": "USD",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+---
+
+## Update Profile
+
+<api method="PUT" endpoint="/api/profile" />
+
+Updates the authenticated user's profile information.
+
+### Request Body
+
+<ParamField body="name" type="string">
+  User display name
+</ParamField>
+
+<ParamField body="bio" type="string">
+  User biography/description
+</ParamField>
+
+<ParamField body="profile_image" type="string">
+  Profile image URL
+</ParamField>
+
+<ParamField body="currency" type="string">
+  Preferred currency (ISO 4217 code)
+</ParamField>
+
+### Response
+
+<ResponseField name="profile" type="object">
+  Updated profile object
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X PUT https://your-domain.com/api/profile \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jane Doe",
+    "bio": "Full-stack developer",
+    "currency": "EUR"
+  }'
+```
+
+---
+
+## Delete Account
+
+<api method="DELETE" endpoint="/api/profile" />
+
+Deletes the authenticated user's account and all associated data.
+
+### Response
+
+<ResponseField name="message" type="string">
+  Success confirmation message
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X DELETE https://your-domain.com/api/profile
+```
+
+### Notes
+
+<Warning>
+  This action is irreversible. It deletes:
+  - User authentication account
+  - Profile data
+  - All enrollments
+  - All progress records
+  - All quiz results
+</Warning>
+
+---
+
+## List Learners (Admin/Instructor)
+
+<api method="GET" endpoint="/api/learners" />
+
+Retrieves a list of all learners (users with user_type = "user"). Requires admin or instructor authentication.
+
+### Query Parameters
+
+<ParamField query="search" type="string">
+  Search by name or email
+</ParamField>
+
+<ParamField query="enrollmentFilter" type="string">
+  Filter by enrollment status: "all", "enrolled", "not-enrolled"
+</ParamField>
+
+### Response
+
+<ResponseField name="learners" type="array">
+  Array of learner objects
+  <Expandable title="Learner Object">
+    <ResponseField name="id" type="string">
+      User UUID
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      User name
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      User email
+    </ResponseField>
+    <ResponseField name="profileImage" type="string">
+      Profile image URL
+    </ResponseField>
+    <ResponseField name="enrolledCourses" type="array">
+      Array of enrolled course IDs
+    </ResponseField>
+    <ResponseField name="completedCourses" type="array">
+      Array of completed course IDs
+    </ResponseField>
+    <ResponseField name="progress" type="object">
+      Object mapping course IDs to progress percentages
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/learners?search=john&enrollmentFilter=enrolled
+```
+
+### Example Response
+
+```json
+{
+  "learners": [
+    {
+      "id": "uuid-1",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "profileImage": "https://example.com/john.jpg",
+      "enrolledCourses": [1, 2, 5],
+      "completedCourses": [1],
+      "progress": {
+        "1": 100,
+        "2": 45,
+        "5": 10
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Get Learner Purchases (Admin/Instructor)
+
+<api method="GET" endpoint="/api/learners/{id}/purchases" />
+
+Retrieves all purchases (payments) for a specific learner. Requires admin or instructor authentication.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Learner UUID
+</ParamField>
+
+### Response
+
+<ResponseField name="purchases" type="array">
+  Array of purchase objects
+  <Expandable title="Purchase Object">
+    <ResponseField name="id" type="number">
+      Purchase ID
+    </ResponseField>
+    <ResponseField name="courseId" type="number">
+      Course ID
+    </ResponseField>
+    <ResponseField name="courseTitle" type="string">
+      Course title
+    </ResponseField>
+    <ResponseField name="courseImage" type="string">
+      Course thumbnail URL
+    </ResponseField>
+    <ResponseField name="amount" type="number">
+      Payment amount
+    </ResponseField>
+    <ResponseField name="currency" type="string">
+      Payment currency
+    </ResponseField>
+    <ResponseField name="gateway" type="string">
+      Payment gateway: "stripe", "flutterwave"
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Payment status: "pending", "completed", "failed", "refunded"
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Payment type: "one-time" or "recurring"
+    </ResponseField>
+    <ResponseField name="purchasedAt" type="string">
+      Purchase timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/learners/uuid-here/purchases
+```
+
+---
+
+## User Types
+
+The platform supports three user types:
+
+| User Type | Description | Permissions |
+|-----------|-------------|-------------|
+| **user** | Regular learner | Enroll in courses, view content, submit quizzes |
+| **instructor** | Course creator | All learner permissions + create courses |
+| **admin** | Platform administrator | Full access to all features and data |
+
+---
+
+## Profile Auto-Creation
+
+When a new user signs up, the GET `/api/profile` endpoint automatically:
+
+1. Checks if a profile exists
+2. If not, creates one with:
+   - `user_type`: "user" (default)
+   - `name`: Derived from email or user metadata
+   - `currency`: "USD" (default)
+3. Returns the profile
+
+This ensures every authenticated user always has a valid profile.
+
+---
+
+## Error Codes
+
+| Status Code | Description |
+|------------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid parameters |
+| 401 | Unauthorized - Authentication required |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Profile or user not found |
+| 500 | Internal Server Error |

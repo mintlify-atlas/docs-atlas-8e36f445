@@ -1,0 +1,377 @@
+---
+title: Course API
+description: API endpoints for managing courses, lessons, and course content
+---
+
+## List Courses
+
+<api method="GET" endpoint="/api/courses" />
+
+Retrieves a list of published courses or all courses (admin/instructor only).
+
+### Query Parameters
+
+<ParamField query="recommended" type="boolean">
+  Returns only the 4 most recently published courses when set to `true`
+</ParamField>
+
+<ParamField query="ids" type="string">
+  Comma-separated list of course IDs to filter by (e.g., "1,2,3")
+</ParamField>
+
+<ParamField query="all" type="boolean">
+  Admin/instructor only: Returns all courses including unpublished drafts when set to `true`
+</ParamField>
+
+### Response
+
+<ResponseField name="courses" type="array">
+  Array of course objects
+  <Expandable title="Course Object">
+    <ResponseField name="id" type="number">
+      Unique course identifier
+    </ResponseField>
+    <ResponseField name="title" type="string">
+      Course title
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Course description
+    </ResponseField>
+    <ResponseField name="image" type="string">
+      Course thumbnail image URL
+    </ResponseField>
+    <ResponseField name="price" type="number">
+      Course price in default currency
+    </ResponseField>
+    <ResponseField name="enrolledStudents" type="number">
+      Total number of enrolled students (calculated dynamically)
+    </ResponseField>
+    <ResponseField name="totalHours" type="number">
+      Total course duration in hours
+    </ResponseField>
+    <ResponseField name="totalDurationMinutes" type="number">
+      Total course duration in minutes
+    </ResponseField>
+    <ResponseField name="lessons" type="array">
+      Array of lesson objects with id, video_url, text_content, and estimated_duration
+    </ResponseField>
+    <ResponseField name="settings" type="object">
+      Course settings including enrollment mode, pricing, and certificate configuration
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/courses?recommended=true
+```
+
+### Example Response
+
+```json
+{
+  "courses": [
+    {
+      "id": 1,
+      "title": "Introduction to Programming",
+      "description": "Learn the basics of programming",
+      "image": "https://example.com/image.jpg",
+      "price": 49.99,
+      "enrolledStudents": 125,
+      "totalHours": 12.5,
+      "totalDurationMinutes": 750,
+      "lessons": [...],
+      "settings": {
+        "enrollment": {
+          "enrollmentMode": "paid",
+          "price": 49.99
+        }
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Create Course
+
+<api method="POST" endpoint="/api/courses" />
+
+Creates a new course. Requires admin authentication.
+
+### Request Body
+
+<ParamField body="title" type="string" required>
+  Course title
+</ParamField>
+
+<ParamField body="description" type="string">
+  Course description
+</ParamField>
+
+<ParamField body="image" type="string">
+  Course thumbnail image URL
+</ParamField>
+
+<ParamField body="price" type="number">
+  Course price
+</ParamField>
+
+<ParamField body="enrollment_mode" type="string">
+  Enrollment mode: "free" or "paid"
+</ParamField>
+
+### Response
+
+<ResponseField name="course" type="object">
+  The created course object
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/courses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Advanced JavaScript",
+    "description": "Master JavaScript concepts",
+    "price": 99.99,
+    "enrollment_mode": "paid"
+  }'
+```
+
+---
+
+## Get Course Details
+
+<api method="GET" endpoint="/api/courses/{id}" />
+
+Retrieves detailed information about a specific course including lessons, quizzes, instructors, and prerequisites.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Course ID or slug (e.g., "123" or "course-title-123")
+</ParamField>
+
+### Response
+
+<ResponseField name="course" type="object">
+  Detailed course object with lessons, creator, instructors, prerequisites
+  <Expandable title="Extended Course Object">
+    <ResponseField name="lessons" type="array">
+      Ordered array of lesson objects with quiz questions, resources, and content
+    </ResponseField>
+    <ResponseField name="creator" type="object">
+      Profile information of the course creator
+    </ResponseField>
+    <ResponseField name="instructors" type="array">
+      Array of instructor profiles assigned to the course
+    </ResponseField>
+    <ResponseField name="prerequisites" type="array">
+      Array of prerequisite courses that must be completed first
+    </ResponseField>
+    <ResponseField name="enrolledStudents" type="number">
+      Current enrollment count
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/courses/introduction-to-programming-123
+```
+
+---
+
+## Delete Course
+
+<api method="DELETE" endpoint="/api/courses/{id}" />
+
+Deletes a course and all related data (lessons, quizzes, enrollments, progress). Requires admin authentication. Payment and certificate records are preserved for historical purposes.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Course ID or slug
+</ParamField>
+
+### Response
+
+<ResponseField name="message" type="string">
+  Success confirmation message
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X DELETE https://your-domain.com/api/courses/123
+```
+
+---
+
+## Save/Update Course Draft
+
+<api method="POST" endpoint="/api/courses/drafts" />
+
+Saves or updates a course draft including all lessons, quizzes, resources, prerequisites, and instructors.
+
+### Request Body
+
+<ParamField body="courseId" type="string">
+  Course ID for updates, or "new" for creating a new course
+</ParamField>
+
+<ParamField body="isPublished" type="boolean">
+  Whether the course should be published (visible to students)
+</ParamField>
+
+<ParamField body="courseData" type="object" required>
+  Complete course data including basicInfo, lessons, settings
+  <Expandable title="Course Data Structure">
+    <ParamField body="basicInfo" type="object">
+      Title, description, thumbnail, previewVideo, requirements, whoIsThisFor, price
+    </ParamField>
+    <ParamField body="lessons" type="array">
+      Array of lesson objects with title, type, content, quizzes, and resources
+    </ParamField>
+    <ParamField body="settings" type="object">
+      Enrollment, certificate, prerequisites, instructor, and quiz settings
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Response
+
+<ResponseField name="course" type="object">
+  Updated course object
+</ResponseField>
+
+<ResponseField name="courseId" type="number">
+  Course ID (useful for newly created courses)
+</ResponseField>
+
+---
+
+## Get Quiz Attempts
+
+<api method="GET" endpoint="/api/courses/{id}/quiz-attempts" />
+
+Retrieves the latest quiz attempt for a specific lesson.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Course ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="lessonId" type="string" required>
+  Lesson ID
+</ParamField>
+
+### Response
+
+<ResponseField name="attempt" type="object">
+  Latest quiz attempt object with question_order and answer_orders for shuffled quizzes
+</ResponseField>
+
+<ResponseField name="attemptNumber" type="number">
+  Current attempt number (0 if no attempts exist)
+</ResponseField>
+
+---
+
+## Get Quiz Results
+
+<api method="GET" endpoint="/api/courses/{id}/quiz-results" />
+
+Retrieves all quiz results for the authenticated user in a course.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Course ID
+</ParamField>
+
+### Response
+
+<ResponseField name="results" type="array">
+  Array of quiz result objects
+</ResponseField>
+
+<ResponseField name="resultsByLesson" type="object">
+  Results grouped by lesson ID
+</ResponseField>
+
+---
+
+## Submit Quiz Results
+
+<api method="POST" endpoint="/api/courses/{id}/quiz-results" />
+
+Submits quiz answers and calculates results. Handles quiz retakes and shuffle logic.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Course ID
+</ParamField>
+
+### Request Body
+
+<ParamField body="lessonId" type="number" required>
+  Lesson ID
+</ParamField>
+
+<ParamField body="answers" type="array" required>
+  Array of answer objects with questionId and userAnswer
+</ParamField>
+
+### Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="results" type="array">
+  Saved quiz result records
+</ResponseField>
+
+<ResponseField name="stats" type="object">
+  <Expandable title="Quiz Statistics">
+    <ResponseField name="totalQuestions" type="number">
+      Total number of questions
+    </ResponseField>
+    <ResponseField name="correctAnswers" type="number">
+      Number of correct answers
+    </ResponseField>
+    <ResponseField name="totalPoints" type="number">
+      Maximum possible points
+    </ResponseField>
+    <ResponseField name="pointsEarned" type="number">
+      Points earned by the user
+    </ResponseField>
+    <ResponseField name="overallScore" type="number">
+      Percentage score (0-100)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Error Codes
+
+| Status Code | Description |
+|------------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid parameters |
+| 401 | Unauthorized - Authentication required |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Course not found |
+| 409 | Conflict - Already enrolled |
+| 500 | Internal Server Error |

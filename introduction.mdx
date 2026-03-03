@@ -1,0 +1,219 @@
+---
+title: Introduction to EaseLMS
+description: A modern, open-source Learning Management System built with Next.js, TypeScript, and Supabase for creating and delivering online courses
+---
+
+<img src="https://cldup.com/3DOgOVrIWN.png" alt="EaseLMS Logo" width="300" />
+
+## The modern open-source Learning Management System
+
+EaseLMS is a complete solution for creating, managing, and delivering online courses with features like video lessons, interactive quizzes, progress tracking, certificates, and payment integration. Built with modern technologies, it provides a beautiful learning experience for students and powerful tools for instructors.
+
+<CardGroup cols={2}>
+  <Card title="Get started" icon="rocket" href="/quickstart">
+    Create your account and enroll in your first course in minutes
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Self-host EaseLMS with complete control over your data
+  </Card>
+  <Card title="Source code" icon="github" href="https://github.com/enyojoo/easelms">
+    View the open-source code on GitHub
+  </Card>
+  <Card title="Hosted service" icon="cloud" href="https://www.easelms.org/hosted">
+    Zero setup with our fully managed hosting solution
+  </Card>
+</CardGroup>
+
+## Why choose EaseLMS?
+
+EaseLMS combines modern development practices with powerful learning features to deliver an exceptional experience for both learners and instructors.
+
+<CardGroup cols={3}>
+  <Card title="Modern stack" icon="layer-group">
+    Built with Next.js 16, React 19, TypeScript, and Supabase for cutting-edge performance
+  </Card>
+  <Card title="Beautiful UI" icon="palette">
+    Modern, responsive design with dark mode support and mobile-first approach
+  </Card>
+  <Card title="Secure" icon="shield-halved">
+    Built-in authentication, role-based access control, and data encryption
+  </Card>
+  <Card title="Monetization ready" icon="credit-card">
+    Integrated payment processing with Stripe and Flutterwave
+  </Card>
+  <Card title="Feature rich" icon="star">
+    Courses, quizzes, certificates, analytics, and comprehensive email notifications
+  </Card>
+  <Card title="Self-hostable" icon="server">
+    Complete control over your data and infrastructure
+  </Card>
+</CardGroup>
+
+## Core features
+
+### Course management
+
+Create unlimited courses with a rich content editor, video lessons with progress tracking, and document resources. Set up course prerequisites, organize content with categories and tags, and track enrollment analytics.
+
+<Note>
+  EaseLMS supports multiple enrollment modes: free courses, one-time paid courses, and recurring subscriptions.
+</Note>
+
+**Enrollment options:**
+- **Free courses** - Open access for all learners
+- **Paid courses** - One-time purchase with Stripe or Flutterwave
+- **Recurring** - Subscription-based access
+- **Closed** - Private courses for specific learners
+
+### Learning experience
+
+Learners enjoy a mobile-responsive course player with video playback, progress saving, and interactive quizzes. The platform tracks progress in real-time, awards achievement badges and certificates, and provides discussion features.
+
+**Supported lesson types:**
+- **Video lessons** - With progress tracking and Media Chrome player
+- **Text content** - Rich text with images and formatting
+- **Mixed lessons** - Combine video and text in a single lesson
+- **Interactive quizzes** - Multiple question types with instant feedback
+
+### Admin and instructor tools
+
+Manage users across three roles (Admin, Instructor, Learner), view comprehensive analytics, and process payments. Customize your platform's branding including logos, colors, and SEO metadata.
+
+<CardGroup cols={2}>
+  <Card title="User management" icon="users">
+    Role-based access control with Admin, Instructor, and Learner roles
+  </Card>
+  <Card title="Analytics dashboard" icon="chart-line">
+    Track enrollments, course completion, revenue, and learner progress
+  </Card>
+  <Card title="Custom branding" icon="paintbrush">
+    Platform name, logos (light/dark), favicon, and SEO metadata
+  </Card>
+  <Card title="Email notifications" icon="envelope">
+    Automated emails via SendGrid for enrollments, completions, and payments
+  </Card>
+</CardGroup>
+
+### Payment integration
+
+Accept payments globally with Stripe or target African markets with Flutterwave. The platform supports multi-currency, handles one-time and recurring payments, and maintains complete purchase history.
+
+**Payment features:**
+- Global payments via Stripe
+- African markets via Flutterwave  
+- Multi-currency support with automatic conversion
+- Webhook handling for payment confirmations
+- Automated email receipts
+
+### Certificates
+
+Automatically generate certificates when learners complete courses. Customize templates, add digital signatures, and allow PDF export. Certificates can be for completion, achievement, or participation.
+
+## Technology stack
+
+<CodeGroup>
+```typescript Frontend
+// Built with Next.js 16 App Router
+// React 19 with TypeScript
+// Styled with Tailwind CSS
+// UI components from shadcn/ui
+```
+
+```typescript Backend  
+// Supabase (PostgreSQL)
+// Supabase Auth for authentication
+// TanStack Query for state management
+// Server Actions for API
+```
+
+```typescript Integrations
+// AWS S3 + CloudFront for storage
+// Stripe & Flutterwave for payments
+// SendGrid for email notifications
+// PDFKit for certificate generation
+```
+</CodeGroup>
+
+**Core technologies:**
+- **Framework:** Next.js 16 with App Router
+- **Language:** TypeScript 5.0
+- **Database:** Supabase (PostgreSQL)
+- **Authentication:** Supabase Auth
+- **Storage:** AWS S3 + CloudFront
+- **Payments:** Stripe & Flutterwave
+- **Email:** SendGrid
+- **Styling:** Tailwind CSS
+- **Components:** Radix UI + shadcn/ui
+
+## Email notification system
+
+EaseLMS includes comprehensive email notifications powered by SendGrid, using your platform's branding configured in Settings.
+
+**User notifications:**
+- Welcome email when signing up
+- Enrollment confirmation
+- Course completion notification
+- Certificate ready notification
+- Payment confirmation and failure alerts
+
+**Admin notifications:**  
+- New enrollment alerts
+- Payment received notifications
+- Course completion reports
+
+<Note>
+  All emails automatically use your custom branding including platform name, logo, contact email, and support both light and dark mode.
+</Note>
+
+## Deployment options
+
+<Tabs>
+  <Tab title="Self-hosted">
+    Deploy EaseLMS on your own infrastructure with complete control. Requires Node.js 18+, Supabase account, and optional AWS S3 for file storage.
+
+    **Benefits:**
+    - Full control over data and infrastructure
+    - Customize code to your needs
+    - No recurring hosting fees (pay for infrastructure only)
+    - AGPL-3.0 license for internal use
+
+    [View installation guide →](/installation)
+  </Tab>
+  <Tab title="Hosted service">
+    Get started in minutes with our fully managed hosting solution.
+
+    **Benefits:**
+    - Zero infrastructure setup
+    - Automatic backups and updates
+    - Professional support included
+    - Enterprise-grade security
+    - Scalable infrastructure
+
+    [Learn about hosted service →](https://www.easelms.org/hosted)
+  </Tab>
+</Tabs>
+
+## Open source license
+
+EaseLMS is licensed under AGPL-3.0. You can freely use it for your organization, modify the code, and use it commercially. If you provide it as a hosted service (SaaS) with modifications, you must open-source your changes.
+
+<Warning>
+  If you want to create a proprietary hosted service without open-sourcing modifications, you'll need a commercial license. [Contact us](https://www.easelms.org/contact) for details.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="bolt" href="/quickstart">
+    Sign up and enroll in your first course
+  </Card>
+  <Card title="Install locally" icon="laptop-code" href="/installation">
+    Set up EaseLMS on your own infrastructure
+  </Card>
+  <Card title="GitHub repository" icon="github" href="https://github.com/enyojoo/easelms">
+    View source code and contribute
+  </Card>
+  <Card title="Get support" icon="life-ring" href="mailto:contact@easelms.org">
+    Contact us for help or questions
+  </Card>
+</CardGroup>

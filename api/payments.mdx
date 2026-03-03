@@ -1,0 +1,298 @@
+---
+title: Payment API
+description: API endpoints for processing course payments with Stripe and Flutterwave
+---
+
+## Create Payment Intent
+
+<api method="POST" endpoint="/api/payments/create-intent" />
+
+Initializes a payment session for course enrollment. Automatically selects the appropriate payment gateway (Stripe or Flutterwave) based on user currency.
+
+### Request Body
+
+<ParamField body="courseId" type="number" required>
+  Course ID to purchase
+</ParamField>
+
+<ParamField body="enrollmentMode" type="string">
+  Enrollment mode (informational)
+</ParamField>
+
+<ParamField body="courseTitle" type="string">
+  Course title (used for payment description)
+</ParamField>
+
+<ParamField body="referrer" type="string">
+  Redirect context: "course-detail" or "courses-list"
+</ParamField>
+
+### Response
+
+Response varies by payment gateway:
+
+#### Stripe Response
+
+<ResponseField name="checkoutUrl" type="string">
+  Stripe Checkout session URL
+</ResponseField>
+
+<ResponseField name="gateway" type="string">
+  "stripe"
+</ResponseField>
+
+<ResponseField name="amount" type="number">
+  Payment amount in user's currency
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  User's preferred currency
+</ResponseField>
+
+<ResponseField name="originalAmount" type="number">
+  Original course price in platform currency
+</ResponseField>
+
+<ResponseField name="originalCurrency" type="string">
+  Platform's default currency
+</ResponseField>
+
+#### Flutterwave Response
+
+<ResponseField name="paymentLink" type="string">
+  Flutterwave payment page URL
+</ResponseField>
+
+<ResponseField name="gateway" type="string">
+  "flutterwave"
+</ResponseField>
+
+<ResponseField name="txRef" type="string">
+  Transaction reference ID
+</ResponseField>
+
+<ResponseField name="amount" type="number">
+  Payment amount
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  Payment currency
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/payments/create-intent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "courseId": 42,
+    "enrollmentMode": "paid",
+    "courseTitle": "Advanced JavaScript",
+    "referrer": "course-detail"
+  }'
+```
+
+### Example Response (Stripe)
+
+```json
+{
+  "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_test_...",
+  "gateway": "stripe",
+  "amount": 99.99,
+  "currency": "USD",
+  "originalAmount": 99.99,
+  "originalCurrency": "USD"
+}
+```
+
+### Example Response (Flutterwave)
+
+```json
+{
+  "paymentLink": "https://checkout.flutterwave.com/v3/...",
+  "gateway": "flutterwave",
+  "txRef": "tx_1234567890_uuid_42",
+  "amount": 41650.00,
+  "currency": "NGN",
+  "originalAmount": 99.99,
+  "originalCurrency": "USD"
+}
+```
+
+---
+
+## Record Payment
+
+<api method="POST" endpoint="/api/payments/record-payment" />
+
+Records a completed payment in the database. Called after successful payment via gateway callback.
+
+### Request Body
+
+<ParamField body="courseId" type="number" required>
+  Course ID
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Payment amount
+</ParamField>
+
+<ParamField body="gateway" type="string" required>
+  Payment gateway: "stripe" or "flutterwave"
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  Payment recording status
+</ResponseField>
+
+<ResponseField name="payment" type="object">
+  Created payment record
+  <Expandable title="Payment Object">
+    <ResponseField name="id" type="number">
+      Payment ID
+    </ResponseField>
+    <ResponseField name="user_id" type="string">
+      User UUID
+    </ResponseField>
+    <ResponseField name="course_id" type="number">
+      Course ID
+    </ResponseField>
+    <ResponseField name="original_amount" type="number">
+      Course price in platform currency
+    </ResponseField>
+    <ResponseField name="original_currency" type="string">
+      Platform currency
+    </ResponseField>
+    <ResponseField name="payment_amount" type="number">
+      Amount charged to user
+    </ResponseField>
+    <ResponseField name="payment_currency" type="string">
+      User's payment currency
+    </ResponseField>
+    <ResponseField name="exchange_rate" type="number">
+      Exchange rate applied
+    </ResponseField>
+    <ResponseField name="gateway" type="string">
+      Payment gateway used
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Payment status ("completed")
+    </ResponseField>
+    <ResponseField name="transaction_id" type="string">
+      Unique transaction identifier
+    </ResponseField>
+    <ResponseField name="completed_at" type="string">
+      Completion timestamp
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/payments/record-payment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "courseId": 42,
+    "amount": 99.99,
+    "gateway": "stripe"
+  }'
+```
+
+---
+
+## Payment Gateway Selection
+
+The API automatically selects the payment gateway based on the user's currency preference:
+
+| Currency | Gateway | Notes |
+|----------|---------|-------|
+| NGN (Nigerian Naira) | Flutterwave | Optimized for African markets |
+| All others (USD, EUR, etc.) | Stripe | Global payment processing |
+
+---
+
+## Currency Conversion
+
+Course prices are stored in the platform's default currency (configurable in `platform_settings`). The API:
+
+1. Fetches the course price in platform currency
+2. Gets the user's preferred currency from their profile
+3. Converts the amount using real-time exchange rates
+4. Creates a payment session in the user's currency
+5. Stores both original and payment amounts for reporting
+
+### Currency Fields
+
+- **original_amount**: Course price in platform currency
+- **original_currency**: Platform's default currency (e.g., "USD")
+- **payment_amount**: Amount charged to user (after conversion)
+- **payment_currency**: User's payment currency
+- **exchange_rate**: Rate used for conversion (amountUSD / originalAmount)
+
+---
+
+## Payment Callbacks
+
+### Stripe Callback
+
+<api method="GET" endpoint="/api/payments/callback/stripe" />
+
+Handles Stripe Checkout session completion.
+
+**Query Parameters:**
+- `success`: "true" for successful payment
+- `courseId`: Course ID
+- `referrer`: Redirect context
+
+### Flutterwave Callback
+
+<api method="GET" endpoint="/api/payments/callback/flutterwave" />
+
+Handles Flutterwave payment completion.
+
+**Query Parameters:**
+- `status`: Payment status
+- `tx_ref`: Transaction reference
+- `transaction_id`: Flutterwave transaction ID
+- `courseId`: Course ID
+- `referrer`: Redirect context
+
+---
+
+## Payment Webhooks
+
+### Stripe Webhook
+
+<api method="POST" endpoint="/api/payments/webhook/stripe" />
+
+Receives and processes Stripe webhook events for payment confirmations and updates.
+
+---
+
+## Payment Flow
+
+1. **User initiates payment**: POST to `/api/payments/create-intent`
+2. **API creates payment session**: 
+   - Converts price to user's currency
+   - Selects appropriate gateway (Stripe or Flutterwave)
+   - Returns checkout/payment URL
+3. **User completes payment**: On gateway-hosted page
+4. **Gateway redirects to callback**: `/api/payments/callback/{gateway}`
+5. **Callback records payment**: Calls `/api/payments/record-payment`
+6. **User enrolled automatically**: Callback creates enrollment record
+7. **User redirected**: To course page or courses list
+
+---
+
+## Error Codes
+
+| Status Code | Description |
+|------------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid course ID or parameters |
+| 401 | Unauthorized - Authentication required |
+| 404 | Not Found - Course not found |
+| 500 | Internal Server Error - Payment gateway error |

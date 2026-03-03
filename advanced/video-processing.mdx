@@ -1,0 +1,664 @@
+---
+title: "Video Processing & Streaming"
+description: "AWS MediaConvert for HLS transcoding and adaptive bitrate video streaming"
+---
+
+## Overview
+
+EaseLMS uses AWS MediaConvert to transcode uploaded videos into HLS (HTTP Live Streaming) format with multiple bitrates for adaptive streaming. This provides optimal playback quality across different network conditions and devices.
+
+## Video Processing Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 Video Processing Flow                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Upload MP4 → S3                                          │
+│  2. Trigger → MediaConvert Job                               │
+│  3. Transcode → Multiple Bitrates (1080p, 720p, 480p)        │
+│  4. Output → HLS Manifest + Segments                         │
+│  5. Store → S3 (hls/ folder)                                 │
+│  6. Deliver → CDN → Client Player                            │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## HLS Output Structure
+
+MediaConvert generates HLS files in a structured format:
+
+```
+courses/course-18/lessons/lesson-42/
+├── video-123-original.mp4              # Original upload
+└── hls/
+    └── video-123/                      # HLS folder
+        ├── video-123.m3u8              # Master playlist
+        ├── video-123_1080p.m3u8        # 1080p variant playlist
+        ├── video-123_1080p00000.ts     # 1080p segments
+        ├── video-123_1080p00001.ts
+        ├── video-123_720p.m3u8         # 720p variant playlist
+        ├── video-123_720p00000.ts      # 720p segments
+        ├── video-123_720p00001.ts
+        ├── video-123_480p.m3u8         # 480p variant playlist
+        ├── video-123_480p00000.ts      # 480p segments
+        └── video-123_480p00001.ts
+```
+
+## MediaConvert Client Setup
+
+```typescript title="lib/aws/mediaconvert.ts"
+import { 
+  MediaConvertClient, 
+  CreateJobCommand, 
+  GetJobCommand 
+} from "@aws-sdk/client-mediaconvert"
+
+const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME!
+const AWS_REGION = process.env.AWS_REGION || 'us-east-1'
+
+const mediaConvertClient = new MediaConvertClient({
+  region: AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+})
+```
+
+### Environment Variables
+
+```bash title=".env.local"
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET_NAME=your_bucket_name
+AWS_MEDIACONVERT_ROLE_ARN=arn:aws:iam::account:role/MediaConvertRole
+```
+
+<Note>
+The MediaConvert role must have permissions to read from and write to your S3 bucket.
+</Note>
+
+## Creating MediaConvert Jobs
+
+### Job Configuration
+
+The `createMediaConvertJob` function creates HLS transcoding jobs:
+
+```typescript title="lib/aws/mediaconvert.ts"
+export async function createMediaConvertJob(videoKey: string): Promise<string> {
+  const { hlsPath, baseName } = getHLSOutputPath(videoKey)
+  const inputS3Url = `s3://${BUCKET_NAME}/${videoKey}`
+  const outputS3Url = `s3://${BUCKET_NAME}/${hlsPath}/`
+
+  const roleArn = process.env.AWS_MEDIACONVERT_ROLE_ARN
+  if (!roleArn) {
+    throw new Error("AWS_MEDIACONVERT_ROLE_ARN is required")
+  }
+
+  const jobSettings = {
+    Role: roleArn,
+    Settings: {
+      Inputs: [{
+        FileInput: inputS3Url,
+        VideoSelector: {},
+        AudioSelectors: {
+          "Audio Selector 1": {
+            DefaultSelection: "DEFAULT",
+          },
+        },
+      }],
+      OutputGroups: [{
+        Name: "HLS Output Group",
+        OutputGroupSettings: {
+          Type: "HLS_GROUP_SETTINGS",
+          HlsGroupSettings: {
+            SegmentLength: 10,
+            Destination: outputS3Url,
+            ManifestDurationFormat: "INTEGER",
+            StreamInfResolution: "INCLUDE",
+          },
+          DestinationSettings: {
+            S3Settings: {
+              AccessControl: {
+                CannedAcl: "PUBLIC_READ",
+              },
+            },
+          },
+        },
+        Outputs: [
+          // 1080p, 720p, 480p outputs (see below)
+        ],
+      }],
+    },
+  }
+
+  const command = new CreateJobCommand(jobSettings)
+  const response = await mediaConvertClient.send(command)
+
+  return response.Job!.Id!
+}
+```
+
+### Output Configurations
+
+<Tabs>
+  <Tab title="1080p @ 5 Mbps">
+    ```typescript
+    {
+      NameModifier: "_1080p",
+      VideoDescription: {
+        CodecSettings: {
+          Codec: "H_264",
+          H264Settings: {
+            RateControlMode: "QVBR",
+            QvbrSettings: {
+              QvbrQualityLevel: 7,
+            },
+            MaxBitrate: 5000000,
+            GopSize: 60,
+            InterlaceMode: "PROGRESSIVE",
+            CodecProfile: "HIGH",
+            CodecLevel: "LEVEL_4",
+          },
+        },
+        Width: 1920,
+        Height: 1080,
+      },
+      AudioDescriptions: [{
+        AudioSelectorName: "Audio Selector 1",
+        CodecSettings: {
+          Codec: "AAC",
+          AacSettings: {
+            Bitrate: 192000,
+            CodingMode: "CODING_MODE_2_0",
+            SampleRate: 48000,
+          },
+        },
+      }],
+      ContainerSettings: {
+        Container: "M3U8",
+      },
+    }
+    ```
+  </Tab>
+  
+  <Tab title="720p @ 3 Mbps">
+    ```typescript
+    {
+      NameModifier: "_720p",
+      VideoDescription: {
+        CodecSettings: {
+          Codec: "H_264",
+          H264Settings: {
+            RateControlMode: "QVBR",
+            QvbrSettings: {
+              QvbrQualityLevel: 7,
+            },
+            MaxBitrate: 3000000,
+            GopSize: 60,
+            CodecProfile: "HIGH",
+            CodecLevel: "LEVEL_3_1",
+          },
+        },
+        Width: 1280,
+        Height: 720,
+      },
+      AudioDescriptions: [{
+        AudioSelectorName: "Audio Selector 1",
+        CodecSettings: {
+          Codec: "AAC",
+          AacSettings: {
+            Bitrate: 128000,
+            SampleRate: 48000,
+          },
+        },
+      }],
+    }
+    ```
+  </Tab>
+  
+  <Tab title="480p @ 1.5 Mbps">
+    ```typescript
+    {
+      NameModifier: "_480p",
+      VideoDescription: {
+        CodecSettings: {
+          Codec: "H_264",
+          H264Settings: {
+            RateControlMode: "QVBR",
+            QvbrSettings: {
+              QvbrQualityLevel: 7,
+            },
+            MaxBitrate: 1500000,
+            GopSize: 60,
+            CodecProfile: "MAIN",
+            CodecLevel: "LEVEL_3_1",
+          },
+        },
+        Width: 854,
+        Height: 480,
+      },
+      AudioDescriptions: [{
+        AudioSelectorName: "Audio Selector 1",
+        CodecSettings: {
+          Codec: "AAC",
+          AacSettings: {
+            Bitrate: 96000,
+            SampleRate: 48000,
+          },
+        },
+      }],
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## HLS Path Generation
+
+The system generates HLS paths based on the original video key:
+
+```typescript title="lib/aws/mediaconvert.ts"
+function getHLSOutputPath(videoKey: string): { 
+  hlsPath: string
+  baseName: string 
+} {
+  const lastSlashIndex = videoKey.lastIndexOf('/')
+  const videoPath = lastSlashIndex >= 0 
+    ? videoKey.substring(0, lastSlashIndex) 
+    : ''
+  const filename = lastSlashIndex >= 0 
+    ? videoKey.substring(lastSlashIndex + 1) 
+    : videoKey
+  const baseName = filename.replace(/\.[^/.]+$/, '')
+  const hlsPath = videoPath 
+    ? `${videoPath}/hls/${baseName}` 
+    : `hls/${baseName}`
+  
+  return { hlsPath, baseName }
+}
+```
+
+### Example Path Transformation
+
+```typescript
+// Input
+const videoKey = "courses/course-18/preview-video-123.mp4"
+
+// Output
+const { hlsPath, baseName } = getHLSOutputPath(videoKey)
+// hlsPath: "courses/course-18/hls/preview-video-123"
+// baseName: "preview-video-123"
+
+// Master playlist URL
+const masterPlaylist = `${hlsPath}/${baseName}.m3u8`
+// "courses/course-18/hls/preview-video-123/preview-video-123.m3u8"
+```
+
+## Job Status Monitoring
+
+### Check Job Status
+
+```typescript title="lib/aws/mediaconvert.ts"
+export async function getMediaConvertJobStatus(jobId: string): Promise<{
+  status: JobStatus | string
+  progress?: number
+  errorMessage?: string
+}> {
+  const command = new GetJobCommand({ Id: jobId })
+  const response = await mediaConvertClient.send(command)
+
+  return {
+    status: response.Job?.Status || "UNKNOWN",
+    progress: response.Job?.JobPercentComplete,
+    errorMessage: response.Job?.ErrorMessage,
+  }
+}
+```
+
+### Job Status Values
+
+<Tabs>
+  <Tab title="SUBMITTED">
+    Job has been submitted to MediaConvert queue.
+    
+    ```typescript
+    { status: "SUBMITTED", progress: 0 }
+    ```
+  </Tab>
+  
+  <Tab title="PROGRESSING">
+    Job is currently being processed.
+    
+    ```typescript
+    { status: "PROGRESSING", progress: 45 }
+    ```
+  </Tab>
+  
+  <Tab title="COMPLETE">
+    Job completed successfully. HLS files are ready.
+    
+    ```typescript
+    { status: "COMPLETE", progress: 100 }
+    ```
+  </Tab>
+  
+  <Tab title="ERROR">
+    Job failed with error.
+    
+    ```typescript
+    {
+      status: "ERROR",
+      progress: 30,
+      errorMessage: "Invalid input file format"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Video Player Integration
+
+The frontend uses Media Chrome for HLS playback:
+
+```typescript title="lib/hooks/useHLS.ts"
+import Hls from 'hls.js'
+
+export function useHLS(videoUrl: string) {
+  useEffect(() => {
+    if (!videoRef.current) return
+    
+    // Check if HLS is supported
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        enableWorker: true,
+      })
+      
+      // Get HLS manifest URL
+      const hlsUrl = getHLSVideoUrl(videoUrl)
+      
+      hls.loadSource(hlsUrl)
+      hls.attachMedia(videoRef.current)
+      
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        // Auto-play or wait for user interaction
+      })
+      
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          // Fallback to original MP4
+          videoRef.current.src = videoUrl
+        }
+      })
+      
+      return () => hls.destroy()
+    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      videoRef.current.src = getHLSVideoUrl(videoUrl)
+    } else {
+      // Fallback to original video
+      videoRef.current.src = videoUrl
+    }
+  }, [videoUrl])
+}
+```
+
+### Adaptive Bitrate Selection
+
+HLS.js automatically selects the optimal bitrate based on:
+
+- **Network bandwidth**: Measured during playback
+- **Screen size**: Higher quality for larger screens
+- **Buffer health**: Switches to lower quality if buffering occurs
+
+## URL Generation for Playback
+
+### Get HLS Manifest URL
+
+```typescript title="lib/aws/s3.ts"
+export function getHLSVideoUrl(originalVideoKey: string): string {
+  const lastSlashIndex = originalVideoKey.lastIndexOf('/')
+  const path = lastSlashIndex >= 0 
+    ? originalVideoKey.substring(0, lastSlashIndex) 
+    : ''
+  const filename = lastSlashIndex >= 0 
+    ? originalVideoKey.substring(lastSlashIndex + 1) 
+    : originalVideoKey
+  
+  const baseName = filename.replace(/\.[^/.]+$/, '')
+  const hlsKey = path 
+    ? `${path}/hls/${baseName}/${baseName}.m3u8` 
+    : `hls/${baseName}/${baseName}.m3u8`
+  
+  // Use CDN for delivery
+  return getPublicUrl(hlsKey, true)
+}
+```
+
+### Prefer HLS with MP4 Fallback
+
+```typescript title="lib/aws/s3.ts"
+export function getPreferredVideoUrl(originalVideoUrl: string): string {
+  if (!originalVideoUrl) return originalVideoUrl
+  
+  // If already HLS, return as-is
+  if (originalVideoUrl.includes('.m3u8')) {
+    return transformToCDNUrl(originalVideoUrl, false)
+  }
+  
+  // Return original URL - player will try HLS automatically
+  return transformToCDNUrl(originalVideoUrl, false)
+}
+```
+
+## Deleting Videos with HLS
+
+When deleting videos, clean up both original and HLS files:
+
+```typescript title="lib/aws/s3.ts"
+export async function deleteVideoWithHLS(videoKey: string): Promise<{ 
+  deleted: number
+  errors: string[]
+}> {
+  const errors: string[] = []
+  let deleted = 0
+
+  // Delete original video
+  try {
+    await deleteFileFromS3(videoKey)
+    deleted++
+  } catch (error: any) {
+    if (!error.message?.includes('NoSuchKey')) {
+      errors.push(`Failed to delete video: ${error.message}`)
+    }
+  }
+
+  // Delete HLS folder
+  try {
+    const hlsDeletedCount = await deleteHLSFolder(videoKey)
+    deleted += hlsDeletedCount
+  } catch (error: any) {
+    errors.push(`Failed to delete HLS: ${error.message}`)
+  }
+
+  return { deleted, errors }
+}
+
+export async function deleteHLSFolder(videoKey: string): Promise<number> {
+  const hlsFolderPath = getHLSFolderPath(videoKey)
+  let deletedCount = 0
+
+  const listCommand = new ListObjectsV2Command({
+    Bucket: BUCKET_NAME,
+    Prefix: hlsFolderPath,
+  })
+
+  const listResponse = await s3Client.send(listCommand)
+  const objects = listResponse.Contents || []
+
+  for (const object of objects) {
+    if (object.Key) {
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: BUCKET_NAME,
+        Key: object.Key,
+      })
+      await s3Client.send(deleteCommand)
+      deletedCount++
+    }
+  }
+
+  return deletedCount
+}
+```
+
+## Complete Upload & Transcode Flow
+
+<Steps>
+  <Step title="Upload Original Video">
+    Upload MP4 to S3 using presigned URL:
+    
+    ```typescript
+    const videoKey = await uploadVideoToS3(file)
+    // "courses/course-18/preview-video-123.mp4"
+    ```
+  </Step>
+  
+  <Step title="Trigger MediaConvert Job">
+    Create transcoding job:
+    
+    ```typescript
+    const jobId = await createMediaConvertJob(videoKey)
+    // "1234567890123-abcdef"
+    ```
+  </Step>
+  
+  <Step title="Monitor Job Progress">
+    Poll job status until complete:
+    
+    ```typescript
+    const interval = setInterval(async () => {
+      const { status, progress } = await getMediaConvertJobStatus(jobId)
+      
+      if (status === "COMPLETE") {
+        clearInterval(interval)
+        // HLS files are ready
+      } else if (status === "ERROR") {
+        clearInterval(interval)
+        // Handle error
+      }
+    }, 5000)
+    ```
+  </Step>
+  
+  <Step title="Get HLS URL">
+    Generate HLS manifest URL:
+    
+    ```typescript
+    const hlsUrl = getHLSVideoUrl(videoKey)
+    // "https://cdn.example.com/courses/course-18/hls/preview-video-123/preview-video-123.m3u8"
+    ```
+  </Step>
+  
+  <Step title="Play Video">
+    Use HLS.js or native player:
+    
+    ```typescript
+    <video-player src={hlsUrl} />
+    ```
+  </Step>
+</Steps>
+
+## IAM Role Configuration
+
+The MediaConvert role requires these permissions:
+
+```json title="MediaConvert IAM Role Policy"
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": "arn:aws:s3:::your-bucket-name/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::your-bucket-name"
+    }
+  ]
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Quality-Variable Bitrate (QVBR)">
+    QVBR provides better quality-to-file-size ratio than constant bitrate:
+    
+    ```typescript
+    RateControlMode: "QVBR",
+    QvbrSettings: {
+      QvbrQualityLevel: 7, // 1-10 scale
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Set Appropriate Segment Length">
+    10-second segments balance startup time and seek performance:
+    
+    ```typescript
+    HlsGroupSettings: {
+      SegmentLength: 10,
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Enable Acceleration for Faster Processing">
+    Use accelerated transcoding for time-sensitive content (higher cost):
+    
+    ```typescript
+    AccelerationSettings: {
+      Mode: "PREFERRED", // or "ENABLED"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Store Job IDs for Monitoring">
+    Save MediaConvert job IDs in your database to track processing status and handle failures.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<CardGroup cols={2}>
+  <Card title="Job Fails Immediately" icon="circle-xmark">
+    Check that the MediaConvert role has S3 read/write permissions and the input file exists.
+  </Card>
+  <Card title="HLS Playback Fails" icon="video-slash">
+    Verify CORS is configured on S3 and the master playlist exists at the expected path.
+  </Card>
+  <Card title="Low Quality Output" icon="image">
+    Increase QVBR quality level (7-9) and max bitrate for higher quality output.
+  </Card>
+  <Card title="Slow Processing" icon="hourglass">
+    Enable acceleration mode or reduce output resolutions for faster transcoding.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Storage" icon="database" href="/advanced/file-storage">
+    Learn about S3 storage patterns and CDN integration
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/advanced/architecture">
+    Understand the complete system architecture
+  </Card>
+</CardGroup>

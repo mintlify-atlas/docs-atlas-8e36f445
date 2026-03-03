@@ -1,0 +1,411 @@
+---
+title: Email notifications
+description: SendGrid-powered email notification system for user and admin communications
+---
+
+EaseLMS includes a comprehensive email notification system powered by SendGrid that keeps learners and admins informed about important events.
+
+## Overview
+
+The email notification system automatically sends professional, branded emails for:
+
+- **User events** - Enrollments, completions, certificates, payments
+- **Admin notifications** - New enrollments, payments, course completions
+- **System emails** - Welcome messages, password resets, confirmations
+
+All emails are:
+- **Branded** - Use your platform name and logo
+- **Responsive** - Look great on all devices
+- **Professional** - Clean, modern design
+- **Customizable** - Adapt to your platform settings
+
+## SendGrid setup
+
+Configure SendGrid to enable email notifications:
+
+<Steps>
+  <Step title="Create SendGrid account">
+    Sign up for a free account at [sendgrid.com](https://sendgrid.com). The free tier includes 100 emails per day.
+  </Step>
+  
+  <Step title="Verify sender identity">
+    In SendGrid dashboard:
+    - Go to Settings → Sender Authentication
+    - Verify your email address or domain
+    - Complete sender verification (required to send emails)
+  </Step>
+  
+  <Step title="Generate API key">
+    Create an API key:
+    - Navigate to Settings → API Keys
+    - Click "Create API Key"
+    - Select "Full Access" or "Restricted Access" with Mail Send permissions
+    - Copy your API key (shown only once!)
+  </Step>
+  
+  <Step title="Configure environment variables">
+    Add SendGrid credentials to your `.env.local` file:
+    ```bash
+    SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxx
+    SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+    SENDGRID_FROM_NAME=Your Platform Name
+    SENDGRID_REPLY_TO=support@yourdomain.com
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Keep your SendGrid API key secure. Never commit it to version control or share it publicly.
+</Warning>
+
+## Email types
+
+### User emails
+
+Emails sent directly to learners:
+
+<CardGroup cols={2}>
+  <Card title="Welcome email" icon="hand-wave">
+    Sent when a new user signs up.
+    
+    **Includes:**
+    - Personalized greeting
+    - Platform introduction
+    - Getting started tips
+    - Dashboard link
+  </Card>
+  
+  <Card title="Enrollment confirmation" icon="book">
+    Sent when a user enrolls in a course.
+    
+    **Includes:**
+    - Course name and description
+    - Enrollment date
+    - Course access link
+    - Getting started instructions
+  </Card>
+  
+  <Card title="Course completion" icon="graduation-cap">
+    Sent when a user completes a course.
+    
+    **Includes:**
+    - Congratulations message
+    - Course name
+    - Completion date
+    - Certificate link (if available)
+  </Card>
+  
+  <Card title="Certificate ready" icon="certificate">
+    Sent when a certificate is generated.
+    
+    **Includes:**
+    - Certificate number
+    - Download link
+    - Course details
+    - Sharing instructions
+  </Card>
+  
+  <Card title="Payment confirmation" icon="check-circle">
+    Sent after successful payment.
+    
+    **Includes:**
+    - Transaction ID and amount
+    - Course access information
+    - Receipt/invoice
+    - Support contact
+  </Card>
+  
+  <Card title="Payment failed" icon="exclamation-triangle">
+    Sent when payment processing fails.
+    
+    **Includes:**
+    - Failure reason
+    - Retry instructions
+    - Alternative payment options
+    - Support contact
+  </Card>
+</CardGroup>
+
+### Admin emails
+
+Notifications sent to platform administrators:
+
+<CardGroup cols={3}>
+  <Card title="New enrollment" icon="user-plus">
+    Notifies admins of new course enrollments.
+    
+    Includes user name, email, course title, and enrollment date.
+  </Card>
+  
+  <Card title="New payment" icon="dollar-sign">
+    Notifies admins of successful payments.
+    
+    Includes transaction details, amount, user info, and course.
+  </Card>
+  
+  <Card title="Course completion" icon="trophy">
+    Notifies admins when users complete courses.
+    
+    Includes user name, course title, and completion date.
+  </Card>
+</CardGroup>
+
+<Info>
+  Admin emails are sent to the contact email configured in **Settings → Brand**.
+</Info>
+
+## Email content
+
+### Branded templates
+
+All emails automatically include your platform branding:
+
+- **Platform name** - From Settings → Brand
+- **Platform logo** - Header logo (light/dark mode support)
+- **Contact email** - Footer contact information
+- **App URL** - Links back to your platform
+
+Emails adapt to light and dark mode based on recipient preferences.
+
+### Personalization
+
+Emails include personalized content:
+
+- **Recipient name** - "Hi, John" greeting
+- **Course details** - Specific course information
+- **Transaction data** - Payment amounts and IDs
+- **Dates** - Formatted enrollment/completion dates
+
+### Email structure
+
+Each email follows a consistent structure:
+
+1. **Header** - Platform logo and branding
+2. **Greeting** - Personalized salutation
+3. **Main content** - Event-specific information
+4. **Call-to-action** - Prominent button (e.g., "Access Course")
+5. **Additional details** - Supporting information
+6. **Footer** - Contact info, links, and legal text
+
+## Configuration options
+
+### Platform settings
+
+Control notification behavior in **Settings → Platform**:
+
+<Steps>
+  <Step title="Course enrollment notifications">
+    Toggle whether enrollment confirmation emails are sent to learners.
+  </Step>
+  
+  <Step title="Course completion notifications">
+    Enable/disable course completion congratulations emails.
+  </Step>
+  
+  <Step title="Platform announcements">
+    Allow platform-wide announcement emails to all users.
+  </Step>
+  
+  <Step title="User email notifications (default)">
+    Set the default email preference for new user accounts. Users can change this in their profile.
+  </Step>
+</Steps>
+
+### Brand settings
+
+Configure email branding in **Settings → Brand**:
+
+- **Platform name** - Appears in email subject lines and headers
+- **Logo (dark)** - Used in email headers for light mode
+- **Logo (light)** - Used in email headers for dark mode
+- **Contact email** - Displayed in email footers
+- **App URL** - Base URL for links in emails
+
+<Tip>
+  Update brand settings to immediately affect all future emails. Test emails by triggering actions (like enrollments) to verify branding.
+</Tip>
+
+## Email delivery
+
+### Sending process
+
+<Steps>
+  <Step title="Event triggered">
+    An action occurs (enrollment, payment, completion, etc.).
+  </Step>
+  
+  <Step title="Email queued">
+    EaseLMS prepares the email with relevant data and branding.
+  </Step>
+  
+  <Step title="SendGrid processes">
+    Email is sent to SendGrid API for delivery.
+  </Step>
+  
+  <Step title="Delivery confirmed">
+    SendGrid delivers the email and returns confirmation.
+  </Step>
+</Steps>
+
+### Delivery time
+
+Emails are typically delivered:
+- **Instantly** - Most emails sent within seconds
+- **SendGrid queue** - May take 1-5 minutes during high volume
+- **Recipient server** - Final delivery depends on recipient's email provider
+
+### Tracking
+
+SendGrid provides delivery tracking:
+
+- **Activity Feed** - View all sent emails in SendGrid dashboard
+- **Delivery status** - See delivered, bounced, or failed emails
+- **Open rates** - Track if recipients open emails (optional)
+- **Click tracking** - Monitor link clicks (optional)
+
+## Testing emails
+
+### Test mode
+
+Before going live, test email delivery:
+
+<Steps>
+  <Step title="Configure test email">
+    Use your personal email as the `SENDGRID_FROM_EMAIL` during development.
+  </Step>
+  
+  <Step title="Trigger test events">
+    - Sign up a test account
+    - Enroll in a course
+    - Complete a course
+    - Make a test payment
+  </Step>
+  
+  <Step title="Verify email delivery">
+    Check your inbox for emails and verify:
+    - Emails arrive promptly
+    - Branding appears correctly
+    - Links work properly
+    - Content is accurate
+  </Step>
+</Steps>
+
+### Email preview
+
+Verify email content:
+
+1. Check SendGrid Activity Feed to see sent emails
+2. Preview email HTML in browser
+3. Test on different email clients (Gmail, Outlook, Apple Mail)
+4. Verify mobile responsiveness
+
+<Note>
+  Send test emails to multiple email providers to ensure compatibility and good deliverability.
+</Note>
+
+## Best practices
+
+### Deliverability
+
+- **Verify sender domain** - Use SendGrid domain authentication for better deliverability
+- **Warm up your domain** - Start with small volumes and gradually increase
+- **Avoid spam triggers** - Don't use all caps, excessive exclamation marks, or spam keywords
+- **Provide unsubscribe** - Include clear unsubscribe options (already built-in)
+
+### Content
+
+- **Clear subject lines** - Make the email purpose immediately clear
+- **Concise content** - Keep emails focused and scannable
+- **Strong CTAs** - Use clear, action-oriented buttons
+- **Mobile-first** - Ensure emails look good on mobile devices
+
+### Branding
+
+- **Consistent visuals** - Use the same logo and colors across all emails
+- **Professional tone** - Maintain a consistent voice
+- **Contact information** - Always include support contact
+- **Legal compliance** - Include required legal text and privacy policy links
+
+### Performance
+
+- **Monitor sending limits** - Track your SendGrid usage
+- **Handle failures gracefully** - Log failed sends and retry if needed
+- **Respect preferences** - Honor user email preferences
+- **Avoid over-emailing** - Don't overwhelm users with too many emails
+
+<Tip>
+  SendGrid's free tier allows 100 emails/day. For platforms with more users, upgrade to a paid plan with higher sending limits.
+</Tip>
+
+## Troubleshooting
+
+### Emails not sending
+
+**Check:**
+- SendGrid API key is correctly configured
+- API key has Mail Send permissions
+- Sender email is verified in SendGrid
+- No SendGrid account restrictions or suspensions
+- Server logs for error messages
+
+### Emails going to spam
+
+**Solutions:**
+- Complete SendGrid domain authentication
+- Avoid spam trigger words in subject/content
+- Ensure unsubscribe link is present
+- Build sender reputation gradually
+- Ask recipients to whitelist your sender address
+
+### Branding not appearing
+
+**Check:**
+- Platform settings are saved correctly
+- Logo URLs are accessible (not blocked)
+- Image formats are supported (PNG, JPG)
+- Brand settings cache is cleared (restart server)
+
+### Wrong content in emails
+
+**Verify:**
+- Correct data is passed to email templates
+- Environment variables are up to date
+- No caching issues with email templates
+- User and course data is accurate in database
+
+<Warning>
+  If emails consistently fail to send, check your SendGrid account status and daily sending limits.
+</Warning>
+
+## Advanced configuration
+
+### Custom templates
+
+While EaseLMS includes default templates, you can customize them:
+
+1. Modify email templates in `/lib/email/email-templates.ts`
+2. Update email HTML and text versions
+3. Maintain responsive design
+4. Test thoroughly before deploying
+
+### Webhook integration
+
+SendGrid webhooks provide real-time delivery updates:
+
+- Configure webhook endpoint in SendGrid dashboard
+- Receive delivery, bounce, and open notifications
+- Log email events for analytics
+- Handle bounces and unsubscribes automatically
+
+### Localization
+
+Support multiple languages:
+
+- Detect user language preference
+- Load appropriate email template
+- Translate email content
+- Maintain separate templates per language
+
+<Info>
+  Multi-language email support requires custom development. The default system sends emails in English.
+</Info>

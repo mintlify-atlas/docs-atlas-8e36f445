@@ -1,0 +1,520 @@
+---
+title: "File Storage & CDN"
+description: "AWS S3 integration with CloudFront/Azure Front Door for scalable file storage and delivery"
+---
+
+## Overview
+
+EaseLMS uses AWS S3 for object storage with optional CDN integration (CloudFront or Azure Front Door) for global content delivery. The system supports videos, images, documents, and certificates with intelligent path management and deduplication.
+
+## Storage Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│              Upload Flow                        │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  1. Client → Presigned URL Request              │
+│  2. Server → Generate Presigned URL             │
+│  3. Client → Direct Upload to S3                │
+│  4. S3 → Store Object                           │
+│  5. MediaConvert → Transcode Video (if video)   │
+│  6. CDN → Cache for Global Delivery             │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+## S3 Client Configuration
+
+The S3 client is configured with AWS SDK v3:
+
+```typescript title="lib/aws/s3.ts"
+import { 
+  S3Client, 
+  PutObjectCommand, 
+  GetObjectCommand, 
+  DeleteObjectCommand 
+} from "@aws-sdk/client-s3"
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+})
+
+const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME!
+```
+
+### Environment Variables
+
+```bash title=".env.local"
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_S3_BUCKET_NAME=your_bucket_name
+
+# Optional CDN
+AWS_CLOUDFRONT_DOMAIN=d123456.cloudfront.net
+# OR
+AZURE_CDN_URL=https://your-endpoint.azurefd.net
+USE_AZURE_CDN=true
+```
+
+## File Organization Structure
+
+EaseLMS uses a hierarchical S3 key structure for organization:
+
+```
+s3://bucket-name/
+├── courses/
+│   └── course-{id}/
+│       ├── thumbnail-{id}-{filename}
+│       ├── preview-video-{id}-{filename}
+│       ├── hls/
+│       │   └── preview-video-{id}/
+│       │       ├── preview-video-{id}.m3u8
+│       │       ├── preview-video-{id}_1080p.m3u8
+│       │       ├── preview-video-{id}_720p.m3u8
+│       │       └── *.ts segments
+│       ├── lessons/
+│       │   └── lesson-{id}/
+│       │       ├── video-{id}-{filename}
+│       │       ├── hls/
+│       │       │   └── video-{id}/
+│       │       └── resources/
+│       │           └── resource-{id}-{filename}
+│       └── certificate/
+│           ├── template-{id}-{filename}
+│           └── signature-{id}-{filename}
+└── profile/
+    └── user-{id}/
+        ├── avatar-{id}-{filename}
+        └── certificate-{id}-{filename}
+```
+
+### Path Generation
+
+The `getS3StoragePath` function generates standardized paths:
+
+```typescript title="lib/aws/s3.ts"
+export function getS3StoragePath(
+  type: "video" | "thumbnail" | "document" | "avatar" | "certificate",
+  userId: string,
+  filename: string,
+  additionalPath?: string,
+  fileHash?: string,
+  courseId?: string | number,
+  lessonId?: string | number,
+  resourceId?: string | number,
+  fileId?: string | number
+): string {
+  const timestamp = Date.now()
+  const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_")
+  const hashPrefix = fileHash ? `${fileHash.substring(0, 8)}-` : ""
+  const fileIdentifier = fileId ? `${fileId}` : timestamp
+  
+  switch (type) {
+    case "video":
+      if (courseId && lessonId) {
+        return `courses/course-${courseId}/lessons/lesson-${lessonId}/video-${fileIdentifier}-${hashPrefix}${sanitizedFilename}`
+      }
+      if (courseId) {
+        return `courses/course-${courseId}/preview-video-${fileIdentifier}-${hashPrefix}${sanitizedFilename}`
+      }
+      return `courses/temp-${userId}/videos/video-${fileIdentifier}-${hashPrefix}${sanitizedFilename}`
+    
+    case "thumbnail":
+      if (courseId) {
+        return `courses/course-${courseId}/thumbnail-${fileIdentifier}-${hashPrefix}${sanitizedFilename}`
+      }
+      return `courses/temp-${userId}/thumbnail-${fileIdentifier}-${hashPrefix}${sanitizedFilename}`
+    
+    // Additional cases...
+  }
+}
+```
+
+<Note>
+The path structure supports file deduplication using optional hash prefixes and provides clear organization by course, lesson, and resource type.
+</Note>
+
+## Upload Methods
+
+### Direct Upload (Server-Side)
+
+```typescript title="lib/aws/s3.ts"
+export async function uploadFileToS3(
+  file: Buffer,
+  key: string,
+  contentType: string
+): Promise<{ key: string; url: string }> {
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+    Body: file,
+    ContentType: contentType,
+  })
+
+  await s3Client.send(command)
+  const url = getPublicUrl(key)
+  
+  return { key, url }
+}
+```
+
+### Presigned URL Upload (Client-Side)
+
+```typescript title="lib/aws/s3.ts"
+export async function getPresignedPutUrl(
+  key: string,
+  contentType: string,
+  expiresIn: number = 3600
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+    ContentType: contentType,
+  })
+
+  return await getSignedUrl(s3Client, command, { expiresIn })
+}
+```
+
+<Tabs>
+  <Tab title="API Route">
+    ```typescript title="app/api/upload/presigned-url/route.ts"
+    import { getPresignedPutUrl, getS3StoragePath } from '@/lib/aws/s3'
+    
+    export async function POST(request: Request) {
+      const { filename, contentType, type, courseId, lessonId } = await request.json()
+      
+      const userId = "user-123" // Get from auth
+      
+      const key = getS3StoragePath(
+        type,
+        userId,
+        filename,
+        undefined,
+        undefined,
+        courseId,
+        lessonId
+      )
+      
+      const presignedUrl = await getPresignedPutUrl(key, contentType)
+      
+      return Response.json({ presignedUrl, key })
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Client Component">
+    ```typescript title="components/FileUploader.tsx"
+    async function uploadFile(file: File) {
+      // 1. Request presigned URL
+      const response = await fetch('/api/upload/presigned-url', {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+          type: 'video',
+          courseId: 123,
+        }),
+      })
+      
+      const { presignedUrl, key } = await response.json()
+      
+      // 2. Upload directly to S3
+      await fetch(presignedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      })
+      
+      return key
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## CDN Integration
+
+### URL Transformation
+
+The system automatically transforms S3 URLs to CDN URLs:
+
+```typescript title="lib/aws/s3.ts"
+export function getPublicUrl(key: string, useCDN: boolean = false): string {
+  const cleanKey = key.startsWith("/") ? key.slice(1) : key
+  
+  // Encode special characters
+  const encodedKey = cleanKey.split("/").map(segment => {
+    if (segment.includes(" ") || /[^a-zA-Z0-9._-]/.test(segment)) {
+      return encodeURIComponent(segment)
+    }
+    return segment
+  }).join("/")
+  
+  // Use CDN if configured
+  const azureCDNUrl = process.env.AZURE_CDN_URL
+  const useCDNEnv = process.env.USE_AZURE_CDN === 'true'
+  
+  if ((useCDN || useCDNEnv) && azureCDNUrl) {
+    return `${azureCDNUrl}/${encodedKey}`
+  }
+  
+  // Fallback to S3
+  const region = process.env.AWS_REGION || "us-east-1"
+  return `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${encodedKey}`
+}
+```
+
+### CDN Configuration
+
+<Tabs>
+  <Tab title="CloudFront">
+    ```bash title=".env.local"
+    AWS_CLOUDFRONT_DOMAIN=d123456.cloudfront.net
+    ```
+    
+    **CloudFront Setup:**
+    1. Create CloudFront distribution
+    2. Set S3 bucket as origin
+    3. Enable Origin Access Identity (OAI)
+    4. Configure cache behaviors:
+       - Videos: Cache for 1 year
+       - Images: Cache for 1 month
+       - Documents: Cache for 1 week
+  </Tab>
+  
+  <Tab title="Azure Front Door">
+    ```bash title=".env.local"
+    AZURE_CDN_URL=https://your-endpoint.azurefd.net
+    USE_AZURE_CDN=true
+    ```
+    
+    **Azure Front Door Setup:**
+    1. Create Azure Front Door profile
+    2. Add S3 as backend origin
+    3. Configure routing rules
+    4. Set caching policies:
+       - Video segments (.ts): Cache for 1 year
+       - Manifests (.m3u8): Cache for 5 minutes
+       - Thumbnails: Cache for 1 month
+  </Tab>
+</Tabs>
+
+### Video URL with HLS
+
+For videos, the system automatically prefers HLS manifests:
+
+```typescript title="lib/aws/s3.ts"
+export function getHLSVideoUrl(originalVideoKey: string): string {
+  const lastSlashIndex = originalVideoKey.lastIndexOf('/')
+  const path = lastSlashIndex >= 0 
+    ? originalVideoKey.substring(0, lastSlashIndex) 
+    : ''
+  const filename = lastSlashIndex >= 0 
+    ? originalVideoKey.substring(lastSlashIndex + 1) 
+    : originalVideoKey
+  
+  const baseName = filename.replace(/\.[^/.]+$/, '')
+  const hlsKey = path 
+    ? `${path}/hls/${baseName}/${baseName}.m3u8` 
+    : `hls/${baseName}/${baseName}.m3u8`
+  
+  return getPublicUrl(hlsKey, true)
+}
+```
+
+## File Validation
+
+### File Type Validation
+
+```typescript title="lib/aws/s3.ts"
+export function isValidVideoFile(file: File): boolean {
+  const validTypes = ["video/mp4", "video/webm", "video/ogg"]
+  const validExtensions = ["mp4", "webm", "ogg"]
+  const extension = file.name.split(".").pop()?.toLowerCase()
+  
+  return validTypes.includes(file.type) || 
+         (extension ? validExtensions.includes(extension) : false)
+}
+
+export function isValidImageFile(file: File): boolean {
+  const validTypes = [
+    "image/jpeg", "image/jpg", "image/png", 
+    "image/gif", "image/webp", "image/svg+xml"
+  ]
+  const validExtensions = ["jpg", "jpeg", "png", "gif", "webp", "svg"]
+  const extension = file.name.split(".").pop()?.toLowerCase()
+  
+  return validTypes.includes(file.type) || 
+         (extension ? validExtensions.includes(extension) : false)
+}
+
+export function isValidDocumentFile(file: File): boolean {
+  const validTypes = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+    "application/zip"
+  ]
+  const validExtensions = ["pdf", "doc", "docx", "txt", "zip"]
+  const extension = file.name.split(".").pop()?.toLowerCase()
+  
+  return validTypes.includes(file.type) || 
+         (extension ? validExtensions.includes(extension) : false)
+}
+```
+
+### File Size Limits
+
+```typescript title="lib/aws/s3.ts"
+export function getMaxVideoSize(): number {
+  return 2 * 1024 * 1024 * 1024 // 2GB
+}
+
+export function getMaxImageSize(): number {
+  return 5 * 1024 * 1024 // 5MB
+}
+
+export function getMaxDocumentSize(): number {
+  return 50 * 1024 * 1024 // 50MB
+}
+```
+
+## File Deletion
+
+### Delete Single File
+
+```typescript title="lib/aws/s3.ts"
+export async function deleteFileFromS3(key: string): Promise<void> {
+  const command = new DeleteObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+  })
+
+  await s3Client.send(command)
+}
+```
+
+### Delete Video with HLS
+
+When deleting videos, also delete HLS transcoded files:
+
+```typescript title="lib/aws/s3.ts"
+export async function deleteVideoWithHLS(videoKey: string): Promise<{ 
+  deleted: number
+  errors: string[]
+}> {
+  const errors: string[] = []
+  let deleted = 0
+
+  // Delete original video
+  try {
+    await deleteFileFromS3(videoKey)
+    deleted++
+  } catch (error: any) {
+    if (!error.message?.includes('NoSuchKey')) {
+      errors.push(`Failed to delete video: ${error.message}`)
+    }
+  }
+
+  // Delete HLS folder
+  try {
+    const hlsDeletedCount = await deleteHLSFolder(videoKey)
+    deleted += hlsDeletedCount
+  } catch (error: any) {
+    errors.push(`Failed to delete HLS folder: ${error.message}`)
+  }
+
+  return { deleted, errors }
+}
+```
+
+## S3 Bucket Configuration
+
+### CORS Policy
+
+```json title="S3 Bucket CORS Configuration"
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://yourdomain.com"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+### Bucket Policy
+
+```json title="S3 Bucket Policy"
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::your-bucket-name/*"
+    }
+  ]
+}
+```
+
+<Warning>
+For production, restrict public access and use CloudFront/CDN with Origin Access Identity (OAI) for secure content delivery.
+</Warning>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Presigned URLs">
+    Upload large files directly from client to S3 using presigned URLs to avoid server bottlenecks and reduce bandwidth costs.
+  </Accordion>
+  
+  <Accordion title="Enable CDN">
+    Always use a CDN for production to:
+    - Reduce latency with edge caching
+    - Lower S3 data transfer costs
+    - Improve video streaming performance
+  </Accordion>
+  
+  <Accordion title="Implement File Deduplication">
+    Use file hashes to prevent duplicate uploads:
+    ```typescript
+    const fileHash = await calculateFileHash(file)
+    const key = getS3StoragePath(type, userId, filename, undefined, fileHash)
+    ```
+  </Accordion>
+  
+  <Accordion title="Set Lifecycle Policies">
+    Configure S3 lifecycle rules to:
+    - Delete temp files after 7 days
+    - Transition old files to Glacier
+    - Clean up incomplete multipart uploads
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Video Processing" icon="video" href="/advanced/video-processing">
+    Learn about video transcoding with AWS MediaConvert
+  </Card>
+  <Card title="Authentication" icon="lock" href="/advanced/authentication">
+    Understand access control for file uploads
+  </Card>
+</CardGroup>

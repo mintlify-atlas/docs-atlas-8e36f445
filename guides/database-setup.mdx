@@ -1,0 +1,268 @@
+---
+title: Database Setup
+description: Complete guide to setting up Supabase database and running migrations for EaseLMS
+---
+
+EaseLMS uses Supabase (PostgreSQL) as its database. This guide walks you through setting up your database and running the necessary migrations.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- A Supabase account (free tier works perfectly)
+- Basic understanding of SQL
+- Your EaseLMS repository cloned locally
+
+## Create a Supabase Project
+
+<Steps>
+  <Step title="Sign up for Supabase">
+    Go to [supabase.com](https://supabase.com) and sign up or log in to your account.
+  </Step>
+
+  <Step title="Create a new project">
+    - Click "New Project"
+    - Choose your organization
+    - Enter a project name (e.g., "easelms-production")
+    - Set a strong database password (save this securely)
+    - Select a region close to your users
+    - Click "Create new project"
+  </Step>
+
+  <Step title="Wait for setup">
+    Wait approximately 2 minutes for Supabase to provision your project.
+  </Step>
+</Steps>
+
+## Get Your Supabase Credentials
+
+<Steps>
+  <Step title="Navigate to API settings">
+    In your Supabase project dashboard, go to **Settings → API**
+  </Step>
+
+  <Step title="Copy your credentials">
+    You'll need three values:
+
+    - **Project URL** - This is your `NEXT_PUBLIC_SUPABASE_URL`
+    - **anon public key** - This is your `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    - **service_role secret key** - This is your `SUPABASE_SERVICE_ROLE_KEY`
+
+    <Warning>
+      Keep your `service_role` key secure! It has full access to your database and should never be exposed in client-side code.
+    </Warning>
+  </Step>
+
+  <Step title="Update your environment variables">
+    Add these values to your `.env.local` file:
+
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+    ```
+  </Step>
+</Steps>
+
+## Run Database Migration
+
+The database migration file creates all necessary tables, indexes, and security policies for EaseLMS.
+
+<Steps>
+  <Step title="Open SQL Editor">
+    In your Supabase project, navigate to **SQL Editor** from the left sidebar.
+  </Step>
+
+  <Step title="Create a new query">
+    Click **New Query** to open a blank SQL editor.
+  </Step>
+
+  <Step title="Copy migration script">
+    Open the file `apps/lms/supabase/migrations/database_setup.sql` from your EaseLMS repository and copy the entire contents.
+  </Step>
+
+  <Step title="Execute migration">
+    - Paste the SQL into the Supabase SQL Editor
+    - Click **Run** (or press Cmd/Ctrl + Enter)
+    - Wait for execution to complete
+
+    <Note>
+      You should see "Success. No rows returned" when the migration completes successfully.
+    </Note>
+  </Step>
+</Steps>
+
+## Verify Database Setup
+
+After running the migration, verify that all tables were created correctly.
+
+<Steps>
+  <Step title="Open Table Editor">
+    Go to **Table Editor** in your Supabase dashboard.
+  </Step>
+
+  <Step title="Verify tables exist">
+    You should see the following tables:
+
+    - `profiles` - User profile information
+    - `courses` - Course data
+    - `lessons` - Individual lesson content
+    - `enrollments` - Course enrollment records
+    - `progress` - Student progress tracking
+    - `payments` - Payment transactions
+    - `certificates` - Generated certificates
+    - `instructors` - Instructor information
+    - `resources` - Downloadable resources
+    - `quiz_questions` - Quiz questions
+    - `quiz_settings` - Quiz configuration
+    - `quiz_attempts` - Quiz attempt tracking
+    - `quiz_results` - Quiz results
+    - `course_instructors` - Course-instructor relationships
+    - `course_prerequisites` - Course prerequisites
+    - `lesson_resources` - Lesson-resource relationships
+    - `platform_settings` - Platform-wide settings
+  </Step>
+</Steps>
+
+## Database Schema Overview
+
+### Core Tables
+
+#### profiles
+Stores user profile information, linked to Supabase Auth users.
+
+```sql
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  user_type TEXT NOT NULL DEFAULT 'learner',
+  profile_image TEXT,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  bio TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### courses
+Stores course information with pricing, enrollment modes, and certificate settings.
+
+```sql
+CREATE TABLE courses (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  image TEXT,
+  price NUMERIC(10, 2),
+  currency TEXT DEFAULT 'USD',
+  enrollment_mode TEXT DEFAULT 'free',
+  certificate_enabled BOOLEAN DEFAULT FALSE,
+  is_published BOOLEAN DEFAULT FALSE,
+  created_by UUID REFERENCES profiles(id)
+);
+```
+
+#### lessons
+Stores individual lesson content (video, text, or mixed).
+
+```sql
+CREATE TABLE lessons (
+  id SERIAL PRIMARY KEY,
+  course_id INTEGER NOT NULL REFERENCES courses(id),
+  title TEXT NOT NULL,
+  type TEXT NOT NULL,
+  video_url TEXT,
+  text_content TEXT,
+  order_index INTEGER NOT NULL,
+  estimated_duration INTEGER DEFAULT 0
+);
+```
+
+### Security Features
+
+The migration includes:
+
+- **Row Level Security (RLS)** - Enabled on all tables
+- **Security Policies** - Restrict data access based on user roles
+- **Automatic Triggers** - Update timestamps and create profiles automatically
+- **Indexes** - Optimize query performance
+
+<Note>
+  The database uses PostgreSQL extensions `uuid-ossp` for UUID generation and `pgcrypto` for password hashing.
+</Note>
+
+## User Roles and Permissions
+
+### User Types
+
+- **user** - Regular learner with access to enrolled courses
+- **admin** - Full access to all platform features and data
+
+### Automatic Profile Creation
+
+When a user signs up through Supabase Auth, a profile is automatically created via the `handle_new_user()` trigger function:
+
+```sql
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+
+## Create Your First Admin User
+
+After setting up the database, you'll need to create an admin user.
+
+<Steps>
+  <Step title="Sign up through the app">
+    Go to your EaseLMS application at `http://localhost:3000` and sign up for a new account.
+  </Step>
+
+  <Step title="Update user_type in Supabase">
+    - Go to **Table Editor** in Supabase
+    - Open the `profiles` table
+    - Find your user record
+    - Change `user_type` from `learner` to `admin`
+    - Save the changes
+  </Step>
+
+  <Step title="Log out and log back in">
+    Log out of the application and log back in to see admin features.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Migration Fails with "relation already exists"
+
+This means you've already run the migration. If you need to reset:
+
+1. Go to SQL Editor in Supabase
+2. Run: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`
+3. Re-run the migration script
+
+<Warning>
+  This will delete all data! Only do this in development.
+</Warning>
+
+### "permission denied for table" errors
+
+Check that Row Level Security policies are correctly applied. The migration script includes all necessary policies.
+
+### Cannot insert into profiles table
+
+Ensure the `on_auth_user_created` trigger is active. Check in SQL Editor:
+
+```sql
+SELECT * FROM information_schema.triggers
+WHERE trigger_name = 'on_auth_user_created';
+```
+
+## Next Steps
+
+After setting up your database:
+
+1. Configure your [environment variables](/guides/environment-variables)
+2. Set up [AWS S3 for file storage](/guides/deployment#aws-s3-setup)
+3. Configure [payment gateways](/guides/customization#payment-integration)
+4. Start the development server with `npm run dev`

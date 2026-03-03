@@ -1,0 +1,287 @@
+---
+title: Certificate API
+description: API endpoints for issuing and downloading course completion certificates
+---
+
+## List Certificates
+
+<api method="GET" endpoint="/api/certificates" />
+
+Retrieves all certificates for the authenticated user or a specific user (admin only).
+
+### Query Parameters
+
+<ParamField query="userId" type="string">
+  Admin only: User UUID to retrieve certificates for
+</ParamField>
+
+### Response
+
+<ResponseField name="certificates" type="array">
+  Array of certificate objects
+  <Expandable title="Certificate Object">
+    <ResponseField name="id" type="string">
+      Certificate UUID
+    </ResponseField>
+    <ResponseField name="certificateNumber" type="string">
+      Unique certificate number (e.g., "CERT-1234")
+    </ResponseField>
+    <ResponseField name="courseId" type="number">
+      Course ID
+    </ResponseField>
+    <ResponseField name="courseTitle" type="string">
+      Course title
+    </ResponseField>
+    <ResponseField name="issuedAt" type="string">
+      Issue timestamp (ISO 8601)
+    </ResponseField>
+    <ResponseField name="certificateType" type="string">
+      Certificate type: "completion", "participation", "achievement"
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/certificates
+```
+
+### Example Response
+
+```json
+{
+  "certificates": [
+    {
+      "id": "uuid-here",
+      "certificateNumber": "CERT-1234567890-ABC123",
+      "courseId": 42,
+      "courseTitle": "Introduction to Programming",
+      "issuedAt": "2024-01-15T10:30:00Z",
+      "certificateType": "completion"
+    }
+  ]
+}
+```
+
+---
+
+## Issue Certificate
+
+<api method="POST" endpoint="/api/certificates" />
+
+Issues a new certificate for a completed course. Requires course completion and certificate enablement.
+
+### Request Body
+
+<ParamField body="courseId" type="number" required>
+  Course ID to issue certificate for
+</ParamField>
+
+### Response
+
+<ResponseField name="certificate" type="object">
+  <Expandable title="Certificate Object">
+    <ResponseField name="id" type="string">
+      Certificate UUID
+    </ResponseField>
+    <ResponseField name="certificateNumber" type="string">
+      Unique certificate number
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Success or informational message
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://your-domain.com/api/certificates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "courseId": 42
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "certificate": {
+    "id": "uuid-here",
+    "certificateNumber": "CERT-1234567890-ABC123"
+  },
+  "message": "Certificate created successfully"
+}
+```
+
+### Validation
+
+Before issuing a certificate, the API validates:
+
+1. ✓ User has completed the course (status = "completed")
+2. ✓ Certificates are enabled for the course (`certificate_enabled = true`)
+3. ✓ Certificate doesn't already exist for this user-course combination
+
+---
+
+## Download Certificate
+
+<api method="GET" endpoint="/api/certificates/{id}/download" />
+
+Generates and downloads a PDF certificate. The PDF is generated on-demand and uploaded to S3 for future access.
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Certificate UUID
+</ParamField>
+
+### Response
+
+Returns a PDF file with:
+
+- **Content-Type**: `application/pdf`
+- **Content-Disposition**: `attachment; filename="certificate-{number}.pdf"`
+
+### Example Request
+
+```bash
+curl https://your-domain.com/api/certificates/uuid-here/download \
+  -o certificate.pdf
+```
+
+### Certificate Generation
+
+The API:
+
+1. Validates user access (owner or admin)
+2. Checks if PDF already exists in S3
+3. If not, generates PDF with:
+   - Platform logo and name (from brand settings)
+   - Learner name
+   - Course title
+   - Certificate number
+   - Issue date
+   - Certificate type (completion/participation/achievement)
+   - Digital signature (if configured)
+4. Uploads PDF to S3
+5. Saves PDF URL to database (`certificate_url`)
+6. Returns PDF file
+
+---
+
+## Certificate Types
+
+Three certificate types are supported:
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| **completion** | Course completion certificate | User completed all required lessons and quizzes |
+| **participation** | Participation certificate | User attended/participated in the course |
+| **achievement** | Achievement certificate | User achieved specific milestones or scores |
+
+---
+
+## Certificate Configuration
+
+Certificates are configured at the course level with these fields:
+
+<ParamField name="certificate_enabled" type="boolean">
+  Enable/disable certificates for this course
+</ParamField>
+
+<ParamField name="certificate_type" type="string">
+  Certificate type: "completion", "participation", "achievement"
+</ParamField>
+
+<ParamField name="certificate_template" type="string">
+  Custom template selection
+</ParamField>
+
+<ParamField name="certificate_title" type="string">
+  Custom certificate title (e.g., "Certificate of Excellence")
+</ParamField>
+
+<ParamField name="certificate_description" type="string">
+  Custom description text
+</ParamField>
+
+<ParamField name="signature_image" type="string">
+  URL to signature image
+</ParamField>
+
+<ParamField name="signature_name" type="string">
+  Signatory name
+</ParamField>
+
+<ParamField name="signature_title" type="string">
+  Signatory title (e.g., "CEO", "Lead Instructor")
+</ParamField>
+
+<ParamField name="additional_text" type="string">
+  Additional custom text
+</ParamField>
+
+---
+
+## Brand Integration
+
+Certificates automatically include:
+
+- **Platform Logo**: Fetched from brand settings (`logoBlack` for white background)
+- **Organization Name**: From brand settings (`platformName`)
+- **Fallback**: Uses default logo and "EaseLMS" if brand settings unavailable
+
+---
+
+## Certificate Notifications
+
+When a certificate is issued, the API automatically:
+
+1. Sends email notification to the user
+2. Includes download link in the email
+3. Email contains certificate number and course details
+
+---
+
+## Certificate Number Format
+
+Certificate numbers are generated as:
+
+```
+CERT-{timestamp}-{random}
+```
+
+Example: `CERT-1705320600000-A1B2C3D4E`
+
+This ensures:
+- Uniqueness (timestamp + random)
+- Sortability (timestamp-based)
+- Easy identification (CERT prefix)
+
+---
+
+## PDF Storage
+
+Generated PDFs are:
+
+1. Stored in S3 with path: `certificates/{userId}/certificate-{number}.pdf`
+2. URL saved to `certificate_url` field
+3. Reused for future downloads (regenerated only if missing)
+4. Accessible via direct S3 URL or download endpoint
+
+---
+
+## Error Codes
+
+| Status Code | Description |
+|------------|-------------|
+| 200 | Success - Returns PDF file |
+| 400 | Bad Request - Course not completed or certificates disabled |
+| 401 | Unauthorized - Authentication required |
+| 403 | Forbidden - Not authorized to download this certificate |
+| 404 | Not Found - Certificate not found |
+| 500 | Internal Server Error - PDF generation failed |

@@ -1,0 +1,508 @@
+---
+title: "Authentication System"
+description: "Supabase authentication implementation with row-level security and role-based access control"
+---
+
+## Overview
+
+EaseLMS uses Supabase Auth for authentication with custom middleware for session management and role-based access control. The system implements three-tier authentication: server-side, middleware, and client-side.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│           Authentication Flow                   │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  1. User Login → Supabase Auth                 │
+│  2. Session Created → Cookie Storage            │
+│  3. Middleware → Session Validation             │
+│  4. RLS Check → Database Access Control         │
+│  5. Response → Protected Resource               │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+## Supabase Client Types
+
+EaseLMS implements three types of Supabase clients for different contexts:
+
+### 1. Server Client
+
+Used in Server Components and API Routes with cookie-based session management:
+
+```typescript title="lib/supabase/server.ts"
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+export async function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  const cookieStore = await cookies()
+
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        } catch {
+          // Server Component limitation - middleware handles refresh
+        }
+      },
+    },
+  })
+}
+```
+
+<Note>
+The server client automatically reads session cookies and validates authentication state without requiring manual token management.
+</Note>
+
+### 2. Service Role Client
+
+Used for admin operations that bypass Row Level Security:
+
+```typescript title="lib/supabase/server.ts"
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+
+export function createServiceRoleClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase service role key')
+  }
+
+  return createServiceClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+}
+```
+
+<Warning>
+The service role client bypasses all RLS policies. Use only for trusted server-side operations like user management and admin tasks.
+</Warning>
+
+### 3. Browser Client
+
+Used in Client Components with automatic session handling:
+
+```typescript title="lib/supabase/client.ts"
+import { createBrowserClient } from '@supabase/ssr'
+import { checkSupabaseEnv } from './env-check'
+
+export function createClient() {
+  const envCheck = checkSupabaseEnv()
+  if (!envCheck.valid) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error(envCheck.message)
+    }
+    // Fallback to placeholder to prevent crashes
+    return createBrowserClient(
+      'https://placeholder.supabase.co',
+      'placeholder-key'
+    )
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+}
+```
+
+## Middleware Implementation
+
+The middleware handles session validation and route protection:
+
+```typescript title="lib/supabase/middleware.ts"
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function updateSession(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.next({ request })
+  }
+
+  let supabaseResponse = NextResponse.next({ request })
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => 
+          request.cookies.set(name, value)
+        )
+        supabaseResponse = NextResponse.next({ request })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
+
+  // Get authenticated user
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Public paths that don't require authentication
+  const publicPaths = ['/auth', '/forgot-password']
+  const isPublicPath = publicPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
+  )
+
+  // Redirect unauthenticated users
+  if (!user && !isPublicPath && !request.nextUrl.pathname.startsWith('/api')) {
+    const url = request.nextUrl.clone()
+    url.pathname = request.nextUrl.pathname.startsWith('/admin')
+      ? '/auth/admin/login'
+      : '/auth/learner/login'
+    return NextResponse.redirect(url)
+  }
+
+  return supabaseResponse
+}
+```
+
+## User Roles & Authorization
+
+EaseLMS implements role-based access control with three user types:
+
+### User Types
+
+<Tabs>
+  <Tab title="Admin">
+    ```sql
+    user_type = 'admin'
+    ```
+    
+    **Permissions:**
+    - Full system access
+    - User management
+    - Course creation and management
+    - Payment and enrollment management
+    - Platform settings configuration
+    - Analytics access
+  </Tab>
+  
+  <Tab title="Instructor">
+    ```sql
+    user_type = 'instructor'
+    ```
+    
+    **Permissions:**
+    - Create and manage own courses
+    - View student enrollments in their courses
+    - Access course analytics
+    - Manage course content
+  </Tab>
+  
+  <Tab title="Learner">
+    ```sql
+    user_type = 'user'
+    ```
+    
+    **Permissions:**
+    - Enroll in courses
+    - Access enrolled course content
+    - Track progress
+    - Download certificates
+    - View personal dashboard
+  </Tab>
+</Tabs>
+
+### Role Check in Middleware
+
+```typescript title="middleware.ts (excerpt)"
+// Get user type from profile
+const { data: profile } = await supabase
+  .from('profiles')
+  .select('user_type')
+  .eq('id', user.id)
+  .single()
+
+const userType = profile?.user_type || 'user'
+
+// Protect admin routes
+if (request.nextUrl.pathname.startsWith('/admin') && userType !== 'admin') {
+  url.pathname = '/auth/admin/login'
+  return NextResponse.redirect(url)
+}
+```
+
+## Row Level Security (RLS)
+
+Supabase RLS policies enforce authorization at the database level:
+
+### Example: Courses Table
+
+```sql
+-- Admins can do anything
+CREATE POLICY "Admins have full access to courses"
+ON courses
+FOR ALL
+USING (auth.uid() IN (
+  SELECT id FROM profiles WHERE user_type = 'admin'
+));
+
+-- Instructors can manage their courses
+CREATE POLICY "Instructors can manage their courses"
+ON courses
+FOR ALL
+USING (auth.uid() IN (
+  SELECT user_id FROM course_instructors WHERE course_id = courses.id
+));
+
+-- Public can view published courses
+CREATE POLICY "Anyone can view published courses"
+ON courses
+FOR SELECT
+USING (published = true);
+```
+
+### Example: Enrollments Table
+
+```sql
+-- Users can view their own enrollments
+CREATE POLICY "Users can view their own enrollments"
+ON enrollments
+FOR SELECT
+USING (auth.uid() = user_id);
+
+-- Admins can view all enrollments
+CREATE POLICY "Admins can view all enrollments"
+ON enrollments
+FOR SELECT
+USING (auth.uid() IN (
+  SELECT id FROM profiles WHERE user_type = 'admin'
+));
+```
+
+## Authentication Flows
+
+### Login Flow
+
+```typescript
+import { createClient } from '@/lib/supabase/client'
+
+async function handleLogin(email: string, password: string) {
+  const supabase = createClient()
+  
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+  
+  if (error) {
+    throw new Error(error.message)
+  }
+  
+  // Session is automatically stored in cookies
+  // Middleware will handle redirection
+  return data
+}
+```
+
+### Signup Flow
+
+```typescript
+async function handleSignup(email: string, password: string, userData: any) {
+  const supabase = createClient()
+  
+  // Create auth user
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+  })
+  
+  if (authError) throw authError
+  
+  // Create profile (triggered by database trigger or manual insert)
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      id: authData.user!.id,
+      email,
+      full_name: userData.full_name,
+      user_type: 'user', // Default to learner
+    })
+  
+  if (profileError) throw profileError
+  
+  return authData
+}
+```
+
+### Logout Flow
+
+```typescript
+async function handleLogout() {
+  const supabase = createClient()
+  
+  const { error } = await supabase.auth.signOut()
+  
+  if (error) throw error
+  
+  // Middleware will redirect to login
+  window.location.href = '/auth/learner/login'
+}
+```
+
+### Password Reset Flow
+
+```typescript
+async function requestPasswordReset(email: string) {
+  const supabase = createClient()
+  
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/reset-password`,
+  })
+  
+  if (error) throw error
+}
+
+async function updatePassword(newPassword: string) {
+  const supabase = createClient()
+  
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+  })
+  
+  if (error) throw error
+}
+```
+
+## Session Management
+
+### Auto-Refresh
+
+Supabase Auth automatically refreshes sessions before expiry:
+
+```typescript
+const supabase = createClient()
+
+// Listen for auth state changes
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') {
+    // Clear local data
+  } else if (event === 'TOKEN_REFRESHED') {
+    // Session refreshed automatically
+  }
+})
+```
+
+### Manual Session Check
+
+```typescript
+async function getSession() {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  return session
+}
+
+async function getUser() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+```
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Environment Variables">
+    Never commit credentials to version control:
+    
+    ```bash
+    # Public (safe for client-side)
+    NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+    
+    # Private (server-side only)
+    SUPABASE_SERVICE_ROLE_KEY=eyJ...
+    ```
+  </Accordion>
+  
+  <Accordion title="Service Role Usage">
+    Only use service role client for:
+    - User management operations
+    - Admin-only database operations
+    - Bypassing RLS when necessary
+    
+    Never expose service role key to client-side code.
+  </Accordion>
+  
+  <Accordion title="RLS Policies">
+    Always enable RLS on all tables and create policies for:
+    - Read access (SELECT)
+    - Write access (INSERT, UPDATE, DELETE)
+    - Admin override
+  </Accordion>
+  
+  <Accordion title="Cookie Security">
+    Supabase automatically sets secure cookies:
+    - HttpOnly flag prevents XSS attacks
+    - Secure flag ensures HTTPS-only
+    - SameSite prevents CSRF attacks
+  </Accordion>
+</AccordionGroup>
+
+## Debugging Authentication
+
+### Enable Debug Logging
+
+```typescript title="middleware.ts"
+if (process.env.NODE_ENV === 'development') {
+  console.log('Middleware user type check:', {
+    userId: user.id,
+    userType,
+    profileExists: !!profile,
+    pathname: request.nextUrl.pathname,
+  })
+}
+```
+
+### Common Issues
+
+<CardGroup cols={2}>
+  <Card title="Session Not Persisting" icon="clock">
+    Check that cookies are enabled and HTTPS is used in production.
+  </Card>
+  <Card title="RLS Blocking Access" icon="shield">
+    Verify RLS policies match your user's role and use service role client for admin operations.
+  </Card>
+  <Card title="Redirect Loop" icon="rotate">
+    Ensure middleware doesn't redirect authenticated users accessing valid routes.
+  </Card>
+  <Card title="Missing User Profile" icon="user">
+    Verify profile is created on signup (use database trigger or manual insert).
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Storage" icon="database" href="/advanced/file-storage">
+    Learn about S3 integration for user uploads
+  </Card>
+  <Card title="Video Processing" icon="video" href="/advanced/video-processing">
+    Understand video transcoding and streaming
+  </Card>
+</CardGroup>
