@@ -1,0 +1,104 @@
+{
+  "projectType": "saas",
+  "projectName": "EaseLMS",
+  "projectDescription": "Modern open-source Learning Management System built with Next.js, TypeScript, and Supabase",
+  "theme": "almond",
+  "primaryColor": "#3B82F6",
+  "lightColor": "#60A5FA",
+  "darkColor": "#2563EB",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/courses",
+              "features/learners",
+              "features/payments",
+              "features/certificates",
+              "features/email-notifications",
+              "features/branding"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/database-setup",
+              "guides/environment-variables",
+              "guides/deployment",
+              "guides/customization",
+              "guides/self-hosting"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/architecture",
+              "advanced/authentication",
+              "advanced/file-storage",
+              "advanced/video-processing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "api/courses",
+              "api/lessons",
+              "api/enrollments",
+              "api/users",
+              "api/payments",
+              "api/certificates",
+              "api/progress"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Course management with rich content editor",
+    "Video lessons with progress tracking",
+    "Interactive quizzes and assessments",
+    "Payment integration (Stripe, Flutterwave)",
+    "Automated certificate generation",
+    "Email notifications via SendGrid",
+    "Custom branding and theming",
+    "Role-based access control",
+    "Analytics and reporting",
+    "Mobile-responsive design"
+  ],
+  "publicApiSurface": [
+    "/api/courses - Course CRUD operations",
+    "/api/lessons - Lesson management",
+    "/api/enrollments - Student enrollments",
+    "/api/users - User management",
+    "/api/payments - Payment processing",
+    "/api/certificates - Certificate generation",
+    "/api/progress - Learning progress tracking",
+    "/api/settings - Platform settings",
+    "/api/brand-settings - Branding configuration",
+    "/api/videos - Video upload and processing"
+  ]
+}
