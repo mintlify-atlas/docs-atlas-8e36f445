@@ -9,7 +9,7 @@ EaseLMS is built on a modern, scalable architecture leveraging Next.js 16 with t
 
 ## Architecture Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                        Client Layer                          │
 │  Next.js App Router • React 19 • TanStack Query • Tailwind  │
@@ -69,6 +69,21 @@ EaseLMS is built on a modern, scalable architecture leveraging Next.js 16 with t
 
 EaseLMS uses Turborepo to manage a monorepo with multiple applications:
 
+```text
+easelms/
+├── apps/
+│   ├── lms/                    # Main LMS application
+│   │   ├── app/                # Next.js App Router
+│   │   │   ├── admin/          # Admin dashboard
+│   │   │   ├── learner/        # Learner interface
+│   │   │   ├── api/            # API routes
+│   │   │   └── auth/           # Authentication pages
+│   │   ├── components/         # React components
+│   │   ├── lib/                # Utilities and services
+│   │   └── supabase/           # Database migrations
+│   └── website/                # Marketing landing page
+├── package.json                # Root workspace config
+└── turbo.json                  # Turborepo configuration
 ```
 easelms/
 ├── apps/
